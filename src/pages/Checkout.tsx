@@ -1,42 +1,111 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CreditCard, MapPin, Truck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart, formatBRL } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const checkoutSchema = z.object({
+  customer_name: z.string().trim().min(2).max(120),
+  customer_email: z.string().trim().email().max(255),
+  customer_phone: z.string().trim().min(8).max(30),
+  customer_cpf: z.string().trim().max(20).optional(),
+  shipping_cep: z.string().trim().min(8).max(9),
+  shipping_street: z.string().trim().min(2).max(200),
+  shipping_number: z.string().trim().min(1).max(20),
+  shipping_complement: z.string().trim().max(120).optional(),
+  shipping_district: z.string().trim().min(2).max(120),
+  shipping_city: z.string().trim().min(2).max(120),
+  shipping_state: z.string().trim().min(2).max(2),
+  notes: z.string().trim().max(500).optional(),
+});
 
 const Checkout = () => {
   const { items, subtotal, clear } = useCart();
+  const { user } = useAuth();
   const nav = useNavigate();
-  const [cep, setCep] = useState("");
-  const [shipping, setShipping] = useState<{ label: string; price: number; days: string } | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({
+    customer_name: "", customer_email: user?.email || "", customer_phone: "", customer_cpf: "",
+    shipping_cep: "", shipping_street: "", shipping_number: "", shipping_complement: "",
+    shipping_district: "", shipping_city: "", shipping_state: "", notes: "",
+  });
+  const [shipping, setShipping] = useState<ShippingQuote | null>(null);
   const [payment, setPayment] = useState("pix");
   const [submitting, setSubmitting] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
 
-  const calcShipping = () => {
-    const clean = cep.replace(/\D/g, "");
-    if (clean.length !== 8) {
-      toast.error("Informe um CEP válido (8 dígitos).");
-      return;
-    }
-    // Mock: cálculo provisório baseado na origem em São Bernardo do Campo - SP.
-    // Será substituído por integração real (Correios / Melhor Envio) na próxima fase.
-    const base = 18 + Math.round((parseInt(clean.slice(0, 3), 10) % 50) * 0.6);
-    setShipping({ label: "Entrega padrão", price: base, days: "5 a 10 dias úteis" });
-    toast.success("Frete calculado!");
+  useEffect(() => { if (user?.email) setForm((f) => ({ ...f, customer_email: user.email! })); }, [user]);
+
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const onCepBlur = async () => {
+    const c = form.shipping_cep.replace(/\D/g, "");
+    if (c.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const addr = await fetchAddressByCep(c);
+      setForm((f) => ({ ...f, shipping_street: f.shipping_street || addr.street, shipping_district: f.shipping_district || addr.district, shipping_city: addr.city, shipping_state: addr.state }));
+      const q = await quoteShipping(c);
+      if (q) { setShipping(q); toast.success(`Frete: ${q.label}`); }
+      else { setShipping(null); toast.error("Não atendemos esse CEP no momento."); }
+    } catch (e: any) { toast.error(e.message); }
+    finally { setCepLoading(false); }
   };
 
   const total = subtotal + (shipping?.price || 0);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shipping) { toast.error("Calcule o frete antes de continuar."); return; }
+    if (!shipping) { toast.error("Calcule o frete (digite o CEP e saia do campo)."); return; }
+    const parsed = checkoutSchema.safeParse(form);
+    if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setSubmitting(true);
-    setTimeout(() => {
-      toast.success("Pedido enviado! Entraremos em contato em breve.");
+    try {
+      const { data: order, error: oErr } = await supabase.from("orders").insert({
+        user_id: user?.id || null,
+        customer_name: parsed.data.customer_name,
+        customer_email: parsed.data.customer_email,
+        customer_phone: parsed.data.customer_phone,
+        customer_cpf: parsed.data.customer_cpf || null,
+        shipping_cep: parsed.data.shipping_cep,
+        shipping_street: parsed.data.shipping_street,
+        shipping_number: parsed.data.shipping_number,
+        shipping_complement: parsed.data.shipping_complement || null,
+        shipping_district: parsed.data.shipping_district,
+        shipping_city: parsed.data.shipping_city,
+        shipping_state: parsed.data.shipping_state,
+        shipping_method: shipping.label,
+        shipping_cost: shipping.price,
+        subtotal,
+        total,
+        payment_method: payment,
+        notes: parsed.data.notes || null,
+      }).select().single();
+      if (oErr) throw oErr;
+
+      const itemsRows = items.map((i) => ({
+        order_id: order.id,
+        product_id: i.productId,
+        product_name: i.name,
+        product_image: i.image,
+        variant: i.variant || null,
+        unit_price: i.price,
+        quantity: i.quantity,
+        subtotal: i.price * i.quantity,
+      }));
+      const { error: iErr } = await supabase.from("order_items").insert(itemsRows);
+      if (iErr) throw iErr;
+
+      toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato em breve." });
       clear();
-      nav("/");
-    }, 800);
+      nav(user ? "/conta" : "/");
+    } catch (err: any) {
+      toast.error("Erro ao registrar pedido", { description: err.message });
+    } finally { setSubmitting(false); }
   };
 
   if (items.length === 0) {
@@ -51,24 +120,27 @@ const Checkout = () => {
   return (
     <form onSubmit={submit} className="container py-10">
       <h1 className="text-3xl font-bold mb-8">Finalizar Compra</h1>
+      {!user && (
+        <div className="mb-6 rounded-lg border border-secondary/30 bg-secondary/5 p-4 text-sm">
+          <strong>Comprando como convidado.</strong> Para acompanhar seus pedidos, <Link to="/auth?redirect=/checkout" className="text-secondary font-semibold hover:underline">crie uma conta ou entre</Link>.
+        </div>
+      )}
       <div className="grid lg:grid-cols-[1fr_400px] gap-8">
         <div className="space-y-6">
           <Section icon={<MapPin className="h-5 w-5" />} title="Endereço de entrega">
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Nome completo" name="name" required />
-              <Field label="CPF" name="cpf" required />
-              <Field label="E-mail" name="email" type="email" required />
-              <Field label="Telefone / WhatsApp" name="phone" required />
-              <div className="sm:col-span-2 flex gap-2 items-end">
-                <Field label="CEP" value={cep} onChange={(e) => setCep(e.target.value)} required wrapperClass="flex-1" />
-                <Button type="button" variant="outline" onClick={calcShipping}>Calcular</Button>
-              </div>
-              <Field label="Endereço" name="address" wrapperClass="sm:col-span-2" required />
-              <Field label="Número" name="number" required />
-              <Field label="Complemento" name="complement" />
-              <Field label="Bairro" name="district" required />
-              <Field label="Cidade" name="city" required />
-              <Field label="Estado" name="state" required />
+              <Field label="Nome completo" value={form.customer_name} onChange={(e) => set("customer_name", e.target.value)} required />
+              <Field label="CPF" value={form.customer_cpf} onChange={(e) => set("customer_cpf", e.target.value)} />
+              <Field label="E-mail" type="email" value={form.customer_email} onChange={(e) => set("customer_email", e.target.value)} required />
+              <Field label="Telefone / WhatsApp" value={form.customer_phone} onChange={(e) => set("customer_phone", e.target.value)} required />
+              <Field label={cepLoading ? "CEP (buscando…)" : "CEP"} value={form.shipping_cep} onChange={(e) => set("shipping_cep", e.target.value)} onBlur={onCepBlur} required />
+              <div />
+              <Field label="Endereço" value={form.shipping_street} onChange={(e) => set("shipping_street", e.target.value)} wrapperClass="sm:col-span-2" required />
+              <Field label="Número" value={form.shipping_number} onChange={(e) => set("shipping_number", e.target.value)} required />
+              <Field label="Complemento" value={form.shipping_complement} onChange={(e) => set("shipping_complement", e.target.value)} />
+              <Field label="Bairro" value={form.shipping_district} onChange={(e) => set("shipping_district", e.target.value)} required />
+              <Field label="Cidade" value={form.shipping_city} onChange={(e) => set("shipping_city", e.target.value)} required />
+              <Field label="Estado (UF)" maxLength={2} value={form.shipping_state} onChange={(e) => set("shipping_state", e.target.value.toUpperCase())} required />
             </div>
           </Section>
 
@@ -82,15 +154,15 @@ const Checkout = () => {
                 <p className="font-bold text-primary">{formatBRL(shipping.price)}</p>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Informe o CEP acima e clique em Calcular.</p>
+              <p className="text-sm text-muted-foreground">Informe o CEP acima para calcular o frete automaticamente.</p>
             )}
           </Section>
 
           <Section icon={<CreditCard className="h-5 w-5" />} title="Forma de pagamento">
             <div className="space-y-2">
               {[
-                { v: "pix", label: "PIX (5% de desconto)" },
-                { v: "credit", label: "Cartão de Crédito (em até 6x sem juros)" },
+                { v: "pix", label: "PIX (5% de desconto*)" },
+                { v: "cartao", label: "Cartão de Crédito (em até 6x sem juros)" },
                 { v: "boleto", label: "Boleto Bancário" },
               ].map((p) => (
                 <label key={p.v} className={`flex items-center gap-3 p-4 rounded-md border cursor-pointer transition-smooth ${payment === p.v ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
@@ -98,8 +170,12 @@ const Checkout = () => {
                   <span className="text-sm font-medium">{p.label}</span>
                 </label>
               ))}
-              <p className="text-xs text-muted-foreground mt-2">Integração com gateway de pagamento (Stripe / MercadoPago) será habilitada em breve.</p>
+              <p className="text-xs text-muted-foreground mt-2">Após registrar o pedido, nossa equipe entrará em contato pelo WhatsApp/e-mail com a chave PIX, link de pagamento ou boleto. *Desconto aplicado manualmente.</p>
             </div>
+          </Section>
+
+          <Section icon={<MapPin className="h-5 w-5" />} title="Observações (opcional)">
+            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} maxLength={500} className="w-full rounded-md border border-input bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Detalhes da personalização, prazo, etc." />
           </Section>
         </div>
 
@@ -143,10 +219,7 @@ const Section = ({ icon, title, children }: { icon: React.ReactNode; title: stri
 const Field = ({ label, wrapperClass = "", ...props }: { label: string; wrapperClass?: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
   <div className={wrapperClass}>
     <label className="text-xs font-medium mb-1 block">{label}</label>
-    <input
-      {...props}
-      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-    />
+    <input {...props} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
   </div>
 );
 
