@@ -1,7 +1,8 @@
 import { Link, NavLink } from "react-router-dom";
-import { Search, ShoppingCart, Menu, X } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, User } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CONTACT } from "@/data/contact";
 
@@ -14,6 +15,7 @@ const nav = [
 
 const Header = () => {
   const { count } = useCart();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   return (
@@ -66,14 +68,13 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 ml-auto lg:ml-0">
+          <Link to={user ? "/conta" : "/auth"} aria-label="Minha conta">
+            <Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button>
+          </Link>
           <Link to="/carrinho" aria-label="Carrinho" className="relative">
-            <Button variant="ghost" size="icon">
-              <ShoppingCart className="h-5 w-5" />
-            </Button>
+            <Button variant="ghost" size="icon"><ShoppingCart className="h-5 w-5" /></Button>
             {count > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-cta px-1 text-[10px] font-bold text-cta-foreground">
-                {count}
-              </span>
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-cta px-1 text-[10px] font-bold text-cta-foreground">{count}</span>
             )}
           </Link>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">

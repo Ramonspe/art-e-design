@@ -39,7 +39,7 @@ const Personalizado = () => {
       }
       const msg = `*Pedido de orçamento personalizado*%0A%0A*Nome:* ${parsed.data.name}%0A*Contato:* ${parsed.data.contact}%0A*Produto:* ${parsed.data.productType}%0A*Tamanho:* ${parsed.data.size || "-"}%0A*Quantidade:* ${parsed.data.quantity}%0A*Obs:* ${parsed.data.notes || "-"}${fileUrl ? `%0A*Arquivo enviado:* ${fileUrl}` : ""}`;
       toast.success("Pedido enviado!", { description: "Abrindo WhatsApp para confirmação..." });
-      setTimeout(() => window.open(`https://wa.me/${CONTACT.whatsapp}?text=${msg}`, "_blank"), 600);
+      setTimeout(() => window.open(`https://wa.me/${CONTACT.whatsappRaw}?text=${msg}`, "_blank"), 600);
       (e.target as HTMLFormElement).reset();
       setFile(null);
     } catch (err: any) {
@@ -115,7 +115,7 @@ const Personalizado = () => {
             <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
               <Button type="submit" variant="cta" size="lg" className="flex-1" disabled={submitting}>{submitting ? "Enviando..." : "Enviar para análise"}</Button>
               <Button type="button" variant="outline" size="lg" asChild>
-                <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
+                <a href={`https://wa.me/${CONTACT.whatsappRaw}`} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
               </Button>
             </div>
           </form>
