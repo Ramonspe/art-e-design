@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
-import { Product } from "@/data/catalog";
+import type { Product } from "@/data/catalog";
 import { Button } from "@/components/ui/button";
 import { useCart, formatBRL } from "@/contexts/CartContext";
+import { resolveImage } from "@/lib/imageMap";
 import { toast } from "sonner";
 
 const badgeStyle: Record<string, string> = {
@@ -18,18 +19,12 @@ const badgeLabel: Record<string, string> = {
 
 const ProductCard = ({ product }: { product: Product }) => {
   const { addItem } = useCart();
+  const img = resolveImage(product.image);
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card-soft transition-smooth hover:-translate-y-1 hover:shadow-elegant">
       <Link to={`/produto/${product.slug}`} className="block aspect-square overflow-hidden bg-muted">
-        <img
-          src={product.image}
-          alt={product.name}
-          loading="lazy"
-          width={800}
-          height={800}
-          className="h-full w-full object-cover transition-smooth group-hover:scale-105"
-        />
+        <img src={img} alt={product.name} loading="lazy" width={800} height={800} className="h-full w-full object-cover transition-smooth group-hover:scale-105" />
       </Link>
       {product.badge && (
         <span className={`absolute top-3 left-3 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeStyle[product.badge]}`}>
@@ -38,14 +33,10 @@ const ProductCard = ({ product }: { product: Product }) => {
       )}
       <div className="flex flex-1 flex-col p-4">
         <Link to={`/produto/${product.slug}`}>
-          <h3 className="line-clamp-2 text-sm font-medium text-foreground hover:text-primary transition-smooth min-h-[2.5rem]">
-            {product.name}
-          </h3>
+          <h3 className="line-clamp-2 text-sm font-medium text-foreground hover:text-primary transition-smooth min-h-[2.5rem]">{product.name}</h3>
         </Link>
         <div className="mt-3 flex items-baseline gap-2">
-          {product.oldPrice && (
-            <span className="text-xs text-muted-foreground line-through">{formatBRL(product.oldPrice)}</span>
-          )}
+          {product.oldPrice && <span className="text-xs text-muted-foreground line-through">{formatBRL(product.oldPrice)}</span>}
           <span className="text-lg font-bold text-primary">{formatBRL(product.price)}</span>
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground">em até 6x sem juros</p>
@@ -54,12 +45,11 @@ const ProductCard = ({ product }: { product: Product }) => {
           size="sm"
           className="mt-4"
           onClick={() => {
-            addItem(product);
+            addItem({ ...product, image: img } as any);
             toast.success("Adicionado ao carrinho", { description: product.name });
           }}
         >
-          <ShoppingCart className="h-4 w-4" />
-          Adicionar
+          <ShoppingCart className="h-4 w-4" /> Adicionar
         </Button>
       </div>
     </article>

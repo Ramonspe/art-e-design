@@ -2,21 +2,26 @@ import { useState } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { ShoppingCart, Truck, ShieldCheck, RefreshCw, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getProduct, products } from "@/data/catalog";
+import { useProduct, useProducts } from "@/data/catalog";
 import { useCart, formatBRL } from "@/contexts/CartContext";
+import { resolveImage } from "@/lib/imageMap";
 import ProductCard from "@/components/ProductCard";
 import { toast } from "sonner";
 
 const ProductDetail = () => {
   const { slug } = useParams();
-  const product = slug ? getProduct(slug) : undefined;
+  const { data: product, isLoading } = useProduct(slug);
+  const { data: all = [] } = useProducts();
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
-  const [variant, setVariant] = useState<string>(product?.variants?.[0]?.options[0] ?? "");
+  const [variant, setVariant] = useState<string>("");
 
+  if (isLoading) return <div className="container py-20 text-center text-muted-foreground">Carregando…</div>;
   if (!product) return <Navigate to="/produtos" replace />;
 
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const v = variant || product.variants?.[0]?.options[0] || "";
+  const img = resolveImage(product.image);
+  const related = all.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   return (
     <div className="container py-8">
@@ -31,21 +36,14 @@ const ProductDetail = () => {
       <div className="grid lg:grid-cols-2 gap-10">
         <div className="space-y-3">
           <div className="aspect-square overflow-hidden rounded-xl bg-muted border border-border">
-            <img src={product.image} alt={product.name} width={800} height={800} className="h-full w-full object-cover" />
-          </div>
-          <div className="grid grid-cols-4 gap-3">
-            {[product.image, product.image, product.image, product.image].map((img, i) => (
-              <div key={i} className="aspect-square overflow-hidden rounded-lg border border-border bg-muted">
-                <img src={img} alt="" className="h-full w-full object-cover opacity-80 hover:opacity-100 cursor-pointer transition-smooth" />
-              </div>
-            ))}
+            <img src={img} alt={product.name} width={800} height={800} className="h-full w-full object-cover" />
           </div>
         </div>
 
         <div>
           {product.badge && <span className="inline-block rounded-full bg-accent text-accent-foreground px-3 py-1 text-[10px] font-bold uppercase tracking-wider mb-3">Destaque</span>}
           <h1 className="text-3xl font-bold">{product.name}</h1>
-          <p className="text-sm text-muted-foreground mt-2">Cód.: {product.id.toUpperCase()}</p>
+          <p className="text-sm text-muted-foreground mt-2">Cód.: {product.id.slice(0, 8).toUpperCase()}</p>
 
           <div className="mt-5 flex items-baseline gap-3">
             {product.oldPrice && <span className="text-base text-muted-foreground line-through">{formatBRL(product.oldPrice)}</span>}
@@ -55,16 +53,12 @@ const ProductDetail = () => {
 
           <p className="mt-6 text-sm leading-relaxed text-foreground/80">{product.description}</p>
 
-          {product.variants?.map((v) => (
-            <div key={v.label} className="mt-6">
-              <label className="text-sm font-semibold mb-2 block">{v.label}</label>
+          {product.variants?.map((vv) => (
+            <div key={vv.label} className="mt-6">
+              <label className="text-sm font-semibold mb-2 block">{vv.label}</label>
               <div className="flex flex-wrap gap-2">
-                {v.options.map((o) => (
-                  <button
-                    key={o}
-                    onClick={() => setVariant(o)}
-                    className={`px-4 py-2 rounded-md border text-sm font-medium transition-smooth ${variant === o ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary"}`}
-                  >
+                {vv.options.map((o) => (
+                  <button key={o} onClick={() => setVariant(o)} className={`px-4 py-2 rounded-md border text-sm font-medium transition-smooth ${v === o ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary"}`}>
                     {o}
                   </button>
                 ))}
@@ -78,15 +72,10 @@ const ProductDetail = () => {
               <span className="px-4 font-semibold">{qty}</span>
               <button onClick={() => setQty((q) => q + 1)} className="px-3 py-2 hover:bg-muted" aria-label="Aumentar"><Plus className="h-4 w-4" /></button>
             </div>
-            <Button
-              variant="cta"
-              size="lg"
-              className="flex-1"
-              onClick={() => {
-                addItem(product, qty, variant);
-                toast.success("Adicionado ao carrinho", { description: `${qty}x ${product.name}` });
-              }}
-            >
+            <Button variant="cta" size="lg" className="flex-1" onClick={() => {
+              addItem({ ...product, image: img } as any, qty, v);
+              toast.success("Adicionado ao carrinho", { description: `${qty}x ${product.name}` });
+            }}>
               <ShoppingCart className="h-5 w-5" /> Adicionar ao carrinho
             </Button>
           </div>
