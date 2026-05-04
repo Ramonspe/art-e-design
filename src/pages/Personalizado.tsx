@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Upload, ArrowRight, Palette, FileImage, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { CONTACT } from "@/data/contact";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -18,38 +20,43 @@ const Personalizado = () => {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const data = Object.fromEntries(fd.entries());
     const parsed = schema.safeParse(data);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message || "Verifique os campos");
-      return;
-    }
+    if (!parsed.success) { toast.error(parsed.error.issues[0]?.message || "Verifique os campos"); return; }
+    if (file && file.size > 20 * 1024 * 1024) { toast.error("Arquivo maior que 20MB"); return; }
+
     setSubmitting(true);
-    setTimeout(() => {
-      toast.success("Pedido recebido!", { description: "Entraremos em contato via WhatsApp para confirmar o orçamento." });
+    try {
+      let fileUrl = "";
+      if (file) {
+        const path = `arts/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error } = await supabase.storage.from("custom-uploads").upload(path, file);
+        if (error) throw error;
+        fileUrl = path;
+      }
+      const msg = `*Pedido de orçamento personalizado*%0A%0A*Nome:* ${parsed.data.name}%0A*Contato:* ${parsed.data.contact}%0A*Produto:* ${parsed.data.productType}%0A*Tamanho:* ${parsed.data.size || "-"}%0A*Quantidade:* ${parsed.data.quantity}%0A*Obs:* ${parsed.data.notes || "-"}${fileUrl ? `%0A*Arquivo enviado:* ${fileUrl}` : ""}`;
+      toast.success("Pedido enviado!", { description: "Abrindo WhatsApp para confirmação..." });
+      setTimeout(() => window.open(`https://wa.me/${CONTACT.whatsapp}?text=${msg}`, "_blank"), 600);
       (e.target as HTMLFormElement).reset();
       setFile(null);
-      setSubmitting(false);
-    }, 700);
+    } catch (err: any) {
+      toast.error("Falha ao enviar", { description: err.message });
+    } finally { setSubmitting(false); }
   };
 
   return (
     <div>
-      {/* HERO */}
       <section className="bg-gold-gradient text-primary-foreground">
         <div className="container py-16 text-center">
           <span className="inline-block rounded-full bg-cta text-cta-foreground px-3 py-1 text-xs font-bold uppercase tracking-wider">Personalização sob medida</span>
           <h1 className="mt-4 text-4xl md:text-5xl font-bold">Sua arte, nosso acabamento.</h1>
-          <p className="mt-4 max-w-2xl mx-auto text-primary-foreground/90">
-            Escolha um modelo pronto e edite, ou envie sua própria arte para receber um orçamento personalizado.
-          </p>
+          <p className="mt-4 max-w-2xl mx-auto text-primary-foreground/90">Escolha um modelo pronto e edite, ou envie sua própria arte para receber um orçamento personalizado.</p>
         </div>
       </section>
 
-      {/* DOIS FLUXOS */}
       <section className="container py-14">
         <div className="grid md:grid-cols-2 gap-6">
           <div className="group rounded-2xl border-2 border-border bg-card p-8 hover:border-primary transition-smooth">
@@ -78,7 +85,6 @@ const Personalizado = () => {
         </div>
       </section>
 
-      {/* FORM */}
       <section id="enviar-arte" className="container py-10">
         <div className="max-w-3xl mx-auto rounded-2xl border border-border bg-card p-8 shadow-card-soft">
           <h2 className="text-2xl font-bold">Envie sua arte para orçamento</h2>
@@ -107,11 +113,9 @@ const Personalizado = () => {
             </div>
 
             <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
-              <Button type="submit" variant="cta" size="lg" className="flex-1" disabled={submitting}>
-                {submitting ? "Enviando..." : "Enviar para análise"}
-              </Button>
+              <Button type="submit" variant="cta" size="lg" className="flex-1" disabled={submitting}>{submitting ? "Enviando..." : "Enviar para análise"}</Button>
               <Button type="button" variant="outline" size="lg" asChild>
-                <a href="https://wa.me/5511992862300" target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
+                <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
               </Button>
             </div>
           </form>
