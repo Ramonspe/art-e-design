@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, MapPin, Phone, Mail } from "lucide-react";
 import { CONTACT, waLink } from "@/data/contact";
+import logo from "@/assets/logo.png";
 
 const Footer = () => (
   <footer className="mt-20 bg-primary text-primary-foreground">
     <div className="container py-14 grid gap-10 md:grid-cols-4">
       <div>
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gold-gradient font-bold">A&P</div>
+          <img src={logo} alt="Art & Personalizados" className="h-11 w-11 object-contain bg-primary-foreground/10 rounded-lg p-1" />
           <span className="font-bold">Art & Personalizados</span>
         </div>
         <p className="text-sm text-primary-foreground/80">
