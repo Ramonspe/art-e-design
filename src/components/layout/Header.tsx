@@ -5,6 +5,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CONTACT } from "@/data/contact";
+import logo from "@/assets/logo.png";
 
 const nav = [
   { to: "/", label: "Início" },
@@ -28,9 +29,7 @@ const Header = () => {
       </div>
       <div className="container flex h-20 items-center gap-6">
         <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Art & Personalizados">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gold-gradient text-primary-foreground font-bold text-lg shadow-elegant">
-            A&P
-          </div>
+          <img src={logo} alt="Art & Personalizados" className="h-14 w-14 object-contain" />
           <div className="hidden sm:flex flex-col leading-tight">
             <span className="text-base font-bold text-primary">Art & Personalizados</span>
             <span className="text-[11px] text-muted-foreground tracking-wide uppercase">Gráfica & Personalizados</span>
