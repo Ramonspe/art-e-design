@@ -11,4 +11,4 @@ export const CONTACT = {
 };
 
 export const waLink = (msg = "Olá! Vim pelo site da Art & Personalizados e gostaria de mais informações.") =>
-  `https://api.whatsapp.com/send?phone=${CONTACT.whatsappRaw}&text=${encodeURIComponent(msg)}`;
+  `https://wa.me/${CONTACT.whatsappRaw}?text=${encodeURIComponent(msg)}`;
