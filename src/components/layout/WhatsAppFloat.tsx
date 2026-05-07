@@ -1,10 +1,10 @@
 import { MessageCircle } from "lucide-react";
-import { waLink } from "@/data/contact";
+import { openWhatsApp, waLink } from "@/data/contact";
 
 const WhatsAppFloat = () => {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    window.open(waLink(), "_blank", "noopener,noreferrer");
+    openWhatsApp();
   };
 
   return (

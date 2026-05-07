@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Upload, ArrowRight, Palette, FileImage, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { CONTACT } from "@/data/contact";
+import { openWhatsApp, waLink } from "@/data/contact";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -37,9 +37,9 @@ const Personalizado = () => {
         if (error) throw error;
         fileUrl = path;
       }
-      const msg = `*Pedido de orçamento personalizado*%0A%0A*Nome:* ${parsed.data.name}%0A*Contato:* ${parsed.data.contact}%0A*Produto:* ${parsed.data.productType}%0A*Tamanho:* ${parsed.data.size || "-"}%0A*Quantidade:* ${parsed.data.quantity}%0A*Obs:* ${parsed.data.notes || "-"}${fileUrl ? `%0A*Arquivo enviado:* ${fileUrl}` : ""}`;
+      const msg = `Pedido de orçamento personalizado\n\nNome: ${parsed.data.name}\nContato: ${parsed.data.contact}\nProduto: ${parsed.data.productType}\nTamanho: ${parsed.data.size || "-"}\nQuantidade: ${parsed.data.quantity}\nObs: ${parsed.data.notes || "-"}${fileUrl ? `\nArquivo enviado: ${fileUrl}` : ""}`;
       toast.success("Pedido enviado!", { description: "Abrindo WhatsApp para confirmação..." });
-      setTimeout(() => window.open(`https://wa.me/${CONTACT.whatsappRaw}?text=${msg}`, "_blank"), 600);
+      setTimeout(() => openWhatsApp(msg), 600);
       (e.target as HTMLFormElement).reset();
       setFile(null);
     } catch (err: any) {
@@ -115,7 +115,7 @@ const Personalizado = () => {
             <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
               <Button type="submit" variant="cta" size="lg" className="flex-1" disabled={submitting}>{submitting ? "Enviando..." : "Enviar para análise"}</Button>
               <Button type="button" variant="outline" size="lg" asChild>
-                <a href={`https://wa.me/${CONTACT.whatsappRaw}`} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
+                <a href={waLink()} onClick={(e) => { e.preventDefault(); openWhatsApp(); }} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
               </Button>
             </div>
           </form>

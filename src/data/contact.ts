@@ -10,5 +10,20 @@ export const CONTACT = {
   brand: "Art & Personalizados",
 };
 
-export const waLink = (msg = "Olá! Vim pelo site da Art & Personalizados e gostaria de mais informações.") =>
-  `https://wa.me/${CONTACT.whatsappRaw}?text=${encodeURIComponent(msg)}`;
+export const DEFAULT_WHATSAPP_MESSAGE = "Vim pelo site da Art Personalizados e gostaria de mais informações!";
+
+export const waLink = (msg = DEFAULT_WHATSAPP_MESSAGE) =>
+  `https://web.whatsapp.com/send?phone=${CONTACT.whatsappRaw}&text=${encodeURIComponent(msg)}`;
+
+export const openWhatsApp = (msg = DEFAULT_WHATSAPP_MESSAGE) => {
+  const url = waLink(msg);
+  const opened = window.open("about:blank", "_blank");
+
+  if (opened) {
+    opened.opener = null;
+    opened.location.href = url;
+    return;
+  }
+
+  window.location.href = url;
+};
