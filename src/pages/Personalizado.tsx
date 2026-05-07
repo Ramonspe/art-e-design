@@ -115,7 +115,7 @@ const Personalizado = () => {
             <div className="sm:col-span-2 flex flex-col sm:flex-row gap-3 mt-2">
               <Button type="submit" variant="cta" size="lg" className="flex-1" disabled={submitting}>{submitting ? "Enviando..." : "Enviar para análise"}</Button>
               <Button type="button" variant="outline" size="lg" asChild>
-                <a href={waLink()} onClick={(e) => { e.preventDefault(); openWhatsApp(); }} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
+                <a href={waLink()} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4" /> Falar no WhatsApp</a>
               </Button>
             </div>
           </form>
