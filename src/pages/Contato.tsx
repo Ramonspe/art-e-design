@@ -14,7 +14,7 @@ const Contato = () => (
     <section className="container py-14 grid md:grid-cols-2 gap-8">
       <div className="space-y-5">
         <Card icon={<MessageCircle className="h-5 w-5" />} title="WhatsApp" subtitle="Resposta rápida em horário comercial">
-          <a href={waLink()} onClick={(e) => { e.preventDefault(); openWhatsApp(); }} target="_blank" rel="noreferrer" className="text-primary font-semibold hover:underline">{CONTACT.whatsappDisplay}</a>
+          <a href={waLink()} target="_blank" rel="noreferrer" className="text-primary font-semibold hover:underline">{CONTACT.whatsappDisplay}</a>
         </Card>
         <Card icon={<Phone className="h-5 w-5" />} title="Telefone">
           <p>{CONTACT.whatsappDisplay}</p>
