@@ -16,14 +16,5 @@ export const waLink = (msg = DEFAULT_WHATSAPP_MESSAGE) =>
   `https://web.whatsapp.com/send?phone=${CONTACT.whatsappRaw}&text=${encodeURIComponent(msg)}`;
 
 export const openWhatsApp = (msg = DEFAULT_WHATSAPP_MESSAGE) => {
-  const url = waLink(msg);
-  const opened = window.open("about:blank", "_blank");
-
-  if (opened) {
-    opened.opener = null;
-    opened.location.href = url;
-    return;
-  }
-
-  window.location.href = url;
+  window.location.assign(waLink(msg));
 };
