@@ -1,16 +1,10 @@
 import { MessageCircle } from "lucide-react";
-import { openWhatsApp, waLink } from "@/data/contact";
+import { waLink } from "@/data/contact";
 
 const WhatsAppFloat = () => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    openWhatsApp();
-  };
-
   return (
     <a
       href={waLink()}
-      onClick={handleClick}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"
