@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, MapPin, Phone, Mail } from "lucide-react";
-import { CONTACT, openWhatsApp, waLink } from "@/data/contact";
+import { CONTACT, waLink } from "@/data/contact";
 import logo from "@/assets/logo.png";
 
 const Footer = () => (
@@ -29,7 +29,7 @@ const Footer = () => (
       <div>
         <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider">Contato</h3>
         <ul className="space-y-3 text-sm text-primary-foreground/80">
-          <li className="flex gap-2"><Phone className="h-4 w-4 shrink-0 mt-0.5" /><a href={waLink()} onClick={(e) => { e.preventDefault(); openWhatsApp(); }} target="_blank" rel="noreferrer" className="hover:text-accent">{CONTACT.whatsappDisplay}</a></li>
+          <li className="flex gap-2"><Phone className="h-4 w-4 shrink-0 mt-0.5" /><a href={waLink()} target="_blank" rel="noreferrer" className="hover:text-accent">{CONTACT.whatsappDisplay}</a></li>
           <li className="flex gap-2"><Mail className="h-4 w-4 shrink-0 mt-0.5" /><a href={`mailto:${CONTACT.email}`} className="hover:text-accent">{CONTACT.email}</a></li>
           <li className="flex gap-2"><MapPin className="h-4 w-4 shrink-0 mt-0.5" /><span>{CONTACT.address}</span></li>
         </ul>
