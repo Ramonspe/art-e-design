@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Tag, Truck, ShoppingBag, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Package, Tag, Truck, ShoppingBag, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/contexts/CartContext";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 
 const links = [
   { to: "/admin", label: "Resumo", icon: LayoutDashboard, end: true },
   { to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { to: "/admin/produtos", label: "Produtos", icon: Package },
   { to: "/admin/categorias", label: "Categorias", icon: Tag },
+  { to: "/admin/carrossel", label: "Carrossel", icon: ImageIcon },
   { to: "/admin/frete", label: "Frete", icon: Truck },
 ];
 
@@ -141,10 +143,14 @@ export const AdminProducts = () => {
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries()) as any;
+    const images: string[] = editing._images || [];
+    if (images.length === 0) { alert("Adicione pelo menos uma imagem do produto."); return; }
     const payload = {
       slug: fd.slug, name: fd.name, description: fd.description,
       price: Number(fd.price), old_price: fd.old_price ? Number(fd.old_price) : null,
-      image: fd.image || "prod-mug", category_id: fd.category_id || null,
+      image: images[0], gallery: images.slice(1),
+      video_url: fd.video_url ? String(fd.video_url).trim() : null,
+      category_id: fd.category_id || null,
       badge: fd.badge || null, is_template: fd.is_template === "on",
       featured: fd.featured === "on", active: fd.active === "on",
     };
@@ -161,11 +167,18 @@ export const AdminProducts = () => {
     load();
   };
 
+  const startEdit = (p: any) => {
+    const imgs: string[] = [];
+    if (p.image && (p.image.startsWith("http") || p.image.startsWith("/"))) imgs.push(p.image);
+    if (Array.isArray(p.gallery)) imgs.push(...p.gallery.filter((g: string) => !imgs.includes(g)));
+    setEditing({ ...p, _images: imgs });
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-muted-foreground">{products.length} produtos</p>
-        <Button variant="cta" onClick={() => setEditing({})}>+ Novo produto</Button>
+        <Button variant="cta" onClick={() => setEditing({ _images: [] })}>+ Novo produto</Button>
       </div>
 
       {editing && (
@@ -182,11 +195,24 @@ export const AdminProducts = () => {
               <option value="">—</option>
               {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select></div>
-          <Input label="Imagem (chave ou URL)" name="image" defaultValue={editing.image || "prod-mug"} placeholder="prod-mug, prod-tshirt, https://..." />
           <div><label className="text-xs font-medium">Selo</label>
             <select name="badge" defaultValue={editing.badge || ""} className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">Nenhum</option><option value="novo">Novo</option><option value="mais-vendido">Mais vendido</option><option value="promo">Promoção</option>
             </select></div>
+
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Imagens do produto (a primeira é a capa)</label>
+            <ImageUploader
+              value={editing._images || []}
+              onChange={(urls) => setEditing((e: any) => ({ ...e, _images: urls }))}
+              recommended="800x800 px (quadrado, mínimo 600x600)"
+              hint="Selecione várias imagens — a primeira aparece como capa, as demais ficam no carrossel."
+              pathPrefix="products"
+            />
+          </div>
+
+          <Input label="Vídeo do YouTube (URL — opcional)" name="video_url" defaultValue={editing.video_url || ""} placeholder="https://www.youtube.com/watch?v=..." wrapperClass="sm:col-span-2" />
+
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="is_template" defaultChecked={editing.is_template} /> Permite enviar arte</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="featured" defaultChecked={editing.featured} /> Destacar</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={editing.active ?? true} /> Ativo</label>
@@ -210,7 +236,7 @@ export const AdminProducts = () => {
                 <td className="p-3">{formatBRL(Number(p.price))}</td>
                 <td className="p-3 text-center">{p.active ? "✓" : "—"}</td>
                 <td className="p-3 text-right space-x-2">
-                  <button onClick={() => setEditing(p)} className="text-primary hover:underline text-xs font-semibold">Editar</button>
+                  <button onClick={() => startEdit(p)} className="text-primary hover:underline text-xs font-semibold">Editar</button>
                   <button onClick={() => del(p.id)} className="text-destructive hover:underline text-xs font-semibold">Excluir</button>
                 </td>
               </tr>
@@ -318,3 +344,101 @@ const Input = ({ label, wrapperClass = "", ...props }: { label: string; wrapperC
     <input {...props} className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
   </div>
 );
+
+export const AdminSlides = () => {
+  const [slides, setSlides] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  const load = () =>
+    supabase.from("hero_slides").select("*").order("sort_order").then(({ data }) => setSlides(data || []));
+  useEffect(() => { load(); }, []);
+
+  const save = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries()) as any;
+    const image = (editing._images || [])[0];
+    if (!image) { alert("Adicione uma imagem para o slide."); return; }
+    const payload = {
+      image,
+      eyebrow: fd.eyebrow || null,
+      title: fd.title,
+      subtitle: fd.subtitle || null,
+      cta_label: fd.cta_label || null,
+      cta_href: fd.cta_href || null,
+      sort_order: Number(fd.sort_order) || 0,
+      active: fd.active === "on",
+    };
+    const res = editing?.id
+      ? await supabase.from("hero_slides").update(payload).eq("id", editing.id)
+      : await supabase.from("hero_slides").insert(payload);
+    if (res.error) alert(res.error.message); else { setEditing(null); load(); }
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Excluir este slide?")) return;
+    await supabase.from("hero_slides").delete().eq("id", id);
+    load();
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-muted-foreground">{slides.length} slide(s) no carrossel da home</p>
+        <Button variant="cta" onClick={() => setEditing({ _images: [], active: true, sort_order: slides.length })}>
+          + Novo slide
+        </Button>
+      </div>
+
+      {editing && (
+        <form onSubmit={save} className="rounded-xl border border-primary bg-card p-5 mb-4 grid sm:grid-cols-2 gap-3">
+          <h3 className="sm:col-span-2 font-bold">{editing.id ? "Editar" : "Novo"} slide</h3>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Imagem de fundo</label>
+            <ImageUploader
+              multiple={false}
+              value={editing._images || []}
+              onChange={(urls) => setEditing((e: any) => ({ ...e, _images: urls }))}
+              recommended="1920x800 px (paisagem widescreen)"
+              hint="Use imagens horizontais de alta qualidade para melhor resultado."
+              pathPrefix="hero"
+            />
+          </div>
+          <Input label="Tag (ex: Coleção 2026)" name="eyebrow" defaultValue={editing.eyebrow || ""} />
+          <Input label="Ordem" name="sort_order" type="number" defaultValue={editing.sort_order ?? 0} />
+          <Input label="Título" name="title" defaultValue={editing.title || ""} required wrapperClass="sm:col-span-2" />
+          <Input label="Subtítulo" name="subtitle" defaultValue={editing.subtitle || ""} wrapperClass="sm:col-span-2" />
+          <Input label="Texto do botão" name="cta_label" defaultValue={editing.cta_label || ""} placeholder="Comprar agora" />
+          <Input label="Link do botão" name="cta_href" defaultValue={editing.cta_href || ""} placeholder="/produtos" />
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="active" defaultChecked={editing.active ?? true} /> Ativo
+          </label>
+          <div className="sm:col-span-2 flex gap-2">
+            <Button type="submit" variant="cta">Salvar</Button>
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+          </div>
+        </form>
+      )}
+
+      <div className="grid gap-3">
+        {slides.length === 0 && <p className="text-muted-foreground text-center py-10">Nenhum slide cadastrado ainda.</p>}
+        {slides.map((s) => (
+          <div key={s.id} className="flex gap-4 rounded-xl border border-border bg-card p-3">
+            <img src={s.image} alt="" className="h-20 w-32 rounded-md object-cover bg-muted" />
+            <div className="flex-1 min-w-0">
+              {s.eyebrow && <p className="text-xs font-bold uppercase tracking-wider text-secondary">{s.eyebrow}</p>}
+              <p className="font-semibold truncate">{s.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{s.subtitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">Ordem: {s.sort_order} • {s.active ? "Ativo" : "Inativo"}</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <button onClick={() => setEditing({ ...s, _images: s.image ? [s.image] : [] })}
+                className="text-primary hover:underline text-xs font-semibold">Editar</button>
+              <button onClick={() => del(s.id)} className="text-destructive hover:underline text-xs font-semibold">Excluir</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+

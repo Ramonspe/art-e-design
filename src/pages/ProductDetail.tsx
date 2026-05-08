@@ -20,8 +20,17 @@ const ProductDetail = () => {
   if (!product) return <Navigate to="/produtos" replace />;
 
   const v = variant || product.variants?.[0]?.options[0] || "";
-  const img = resolveImage(product.image);
+  const cover = resolveImage(product.image);
+  const gallery = (product.gallery || []).map(resolveImage);
+  const allImages = [cover, ...gallery.filter((g) => g !== cover)];
+  const [activeImg, setActiveImg] = useState(0);
   const related = all.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+
+  const ytId = (() => {
+    if (!product.videoUrl) return null;
+    const m = product.videoUrl.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
+    return m ? m[1] : null;
+  })();
 
   return (
     <div className="container py-8">
@@ -35,9 +44,30 @@ const ProductDetail = () => {
 
       <div className="grid lg:grid-cols-2 gap-10">
         <div className="space-y-3">
+          {ytId && (
+            <div className="aspect-video overflow-hidden rounded-xl bg-black border border-border">
+              <iframe
+                src={`https://www.youtube.com/embed/${ytId}`}
+                title="Vídeo do produto"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
           <div className="aspect-square overflow-hidden rounded-xl bg-muted border border-border">
-            <img src={img} alt={product.name} width={800} height={800} className="h-full w-full object-cover" />
+            <img src={allImages[activeImg]} alt={product.name} width={800} height={800} className="h-full w-full object-cover" />
           </div>
+          {allImages.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto">
+              {allImages.map((src, i) => (
+                <button key={i} onClick={() => setActiveImg(i)}
+                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-smooth ${i === activeImg ? "border-primary" : "border-border hover:border-primary/50"}`}>
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
@@ -73,7 +103,7 @@ const ProductDetail = () => {
               <button onClick={() => setQty((q) => q + 1)} className="px-3 py-2 hover:bg-muted" aria-label="Aumentar"><Plus className="h-4 w-4" /></button>
             </div>
             <Button variant="cta" size="lg" className="flex-1" onClick={() => {
-              addItem({ ...product, image: img } as any, qty, v);
+              addItem({ ...product, image: cover } as any, qty, v);
               toast.success("Adicionado ao carrinho", { description: `${qty}x ${product.name}` });
             }}>
               <ShoppingCart className="h-5 w-5" /> Adicionar ao carrinho

@@ -4,27 +4,38 @@ import { ArrowRight, Frame, Flag, Shirt, Coffee, Gift, CreditCard, Sticker, Truc
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { useCategories, useProducts } from "@/data/catalog";
+import { supabase } from "@/integrations/supabase/client";
 import hero1 from "@/assets/hero-1.jpg";
 import hero2 from "@/assets/hero-2.jpg";
 import hero3 from "@/assets/hero-3.jpg";
 
-const slides = [
-  { image: hero1, eyebrow: "Coleção 2026", title: "Personalize tudo. Encante a todos.", subtitle: "Quadros, canecas, camisetas e brindes feitos com a sua arte.", cta: "Comprar agora", href: "/produtos" },
-  { image: hero2, eyebrow: "Camisetas Premium", title: "Sua marca em cada estampa.", subtitle: "Tecidos de alta qualidade e impressão de longa duração.", cta: "Ver camisetas", href: "/produtos?cat=camisetas" },
-  { image: hero3, eyebrow: "Decoração", title: "Quadros que transformam ambientes.", subtitle: "Impressão em canvas premium com molduras douradas.", cta: "Ver quadros", href: "/produtos?cat=quadros" },
+type Slide = { image: string; eyebrow?: string | null; title: string; subtitle?: string | null; cta_label?: string | null; cta_href?: string | null };
+
+const fallbackSlides: Slide[] = [
+  { image: hero1, eyebrow: "Coleção 2026", title: "Personalize tudo. Encante a todos.", subtitle: "Quadros, canecas, camisetas e brindes feitos com a sua arte.", cta_label: "Comprar agora", cta_href: "/produtos" },
+  { image: hero2, eyebrow: "Camisetas Premium", title: "Sua marca em cada estampa.", subtitle: "Tecidos de alta qualidade e impressão de longa duração.", cta_label: "Ver camisetas", cta_href: "/produtos?cat=camisetas" },
+  { image: hero3, eyebrow: "Decoração", title: "Quadros que transformam ambientes.", subtitle: "Impressão em canvas premium com molduras douradas.", cta_label: "Ver quadros", cta_href: "/produtos?cat=quadros" },
 ];
 
 const iconMap: Record<string, any> = { Frame, Flag, Shirt, Coffee, Gift, CreditCard, Sticker };
 
 const Home = () => {
   const [slide, setSlide] = useState(0);
+  const [slides, setSlides] = useState<Slide[]>(fallbackSlides);
   const { data: categories = [] } = useCategories();
   const { data: products = [] } = useProducts();
 
   useEffect(() => {
+    supabase.from("hero_slides").select("*").eq("active", true).order("sort_order").then(({ data }) => {
+      if (data && data.length > 0) setSlides(data as Slide[]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
     const t = setInterval(() => setSlide((s) => (s + 1) % slides.length), 6000);
     return () => clearInterval(t);
-  }, []);
+  }, [slides.length]);
 
   const novidades = products.filter((p) => p.badge === "novo").slice(0, 4);
   const maisVendidos = products.filter((p) => p.badge === "mais-vendido").slice(0, 4);
@@ -39,11 +50,15 @@ const Home = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/85 via-primary/60 to-transparent" />
               <div className="container relative h-full flex items-center">
                 <div className="max-w-xl text-primary-foreground">
-                  <span className="inline-block rounded-full bg-accent text-accent-foreground px-3 py-1 text-xs font-bold uppercase tracking-wider">{s.eyebrow}</span>
+                  {s.eyebrow && <span className="inline-block rounded-full bg-accent text-accent-foreground px-3 py-1 text-xs font-bold uppercase tracking-wider">{s.eyebrow}</span>}
                   <h1 className="mt-4 text-4xl md:text-5xl font-bold leading-tight">{s.title}</h1>
-                  <p className="mt-4 text-base md:text-lg text-primary-foreground/90">{s.subtitle}</p>
+                  {s.subtitle && <p className="mt-4 text-base md:text-lg text-primary-foreground/90">{s.subtitle}</p>}
                   <div className="mt-7 flex gap-3">
-                    <Button asChild variant="cta" size="lg"><Link to={s.href}>{s.cta} <ArrowRight className="h-4 w-4" /></Link></Button>
+                    {s.cta_label && (
+                      <Button asChild variant="cta" size="lg">
+                        <Link to={s.cta_href || "/produtos"}>{s.cta_label} <ArrowRight className="h-4 w-4" /></Link>
+                      </Button>
+                    )}
                     <Button asChild variant="outline" size="lg" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
                       <Link to="/personalizado">Enviar minha arte</Link>
                     </Button>
@@ -63,7 +78,7 @@ const Home = () => {
       <section className="border-b border-border bg-muted/40">
         <div className="container py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: Truck, title: "Entrega para todo Brasil", desc: "Frete calculado por CEP" },
+            { icon: Truck, title: "Frete GRÁTIS acima de R$ 199", desc: "Para todo Brasil" },
             { icon: ShieldCheck, title: "Compra 100% segura", desc: "Pagamento criptografado" },
             { icon: Sparkles, title: "Qualidade garantida", desc: "Materiais premium" },
             { icon: Headphones, title: "Atendimento humano", desc: "WhatsApp em horário comercial" },

@@ -30,6 +30,7 @@ export type Product = {
   featured?: boolean;
   active?: boolean;
   stock?: number | null;
+  videoUrl?: string | null;
 };
 
 const mapProduct = (row: any, catSlugById: Record<string, string>): Product => ({
@@ -51,6 +52,7 @@ const mapProduct = (row: any, catSlugById: Record<string, string>): Product => (
   featured: row.featured,
   active: row.active,
   stock: row.stock,
+  videoUrl: row.video_url || null,
 });
 
 export const useCategories = () =>
