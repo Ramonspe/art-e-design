@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
-import { Trash2, Minus, Plus, ShoppingBag } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useCart, formatBRL } from "@/contexts/CartContext";
+import { FREE_SHIPPING_MIN, qualifiesForFreeShipping, remainingForFreeShipping } from "@/lib/freeShipping";
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, subtotal, count } = useCart();
@@ -17,9 +19,24 @@ const Cart = () => {
     );
   }
 
+  const isFree = qualifiesForFreeShipping(subtotal);
+  const missing = remainingForFreeShipping(subtotal);
+  const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
+
   return (
     <div className="container py-10">
       <h1 className="text-3xl font-bold mb-8">Carrinho ({count} {count === 1 ? "item" : "itens"})</h1>
+
+      <div className={`mb-6 rounded-xl border p-4 flex items-center gap-4 ${isFree ? "border-secondary bg-secondary/10" : "border-primary/30 bg-primary/5"}`}>
+        <Truck className={`h-6 w-6 shrink-0 ${isFree ? "text-secondary" : "text-primary"}`} />
+        <div className="flex-1">
+          <p className="font-semibold text-sm">
+            {isFree ? "🎉 Sua compra possui FRETE GRÁTIS!" : `Faltam ${formatBRL(missing)} para o frete grátis`}
+          </p>
+          <Progress value={progress} className="mt-2 h-2" />
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-[1fr_360px] gap-8">
         <div className="space-y-3">
           {items.map((item) => (
@@ -48,7 +65,11 @@ const Cart = () => {
           <h2 className="font-bold text-lg mb-4">Resumo do pedido</h2>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(subtotal)}</span></div>
-            <div className="flex justify-between text-muted-foreground"><span>Frete</span><span>Calculado no checkout</span></div>
+            <div className="flex justify-between"><span>Frete</span>
+              <span className={isFree ? "text-secondary font-semibold" : "text-muted-foreground"}>
+                {isFree ? "GRÁTIS" : "Calculado no checkout"}
+              </span>
+            </div>
           </div>
           <div className="border-t border-border my-4" />
           <div className="flex justify-between font-bold text-lg">
