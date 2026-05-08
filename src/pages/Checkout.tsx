@@ -7,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
 import { qualifiesForFreeShipping, remainingForFreeShipping, FREE_SHIPPING_MIN } from "@/lib/freeShipping";
-import { Truck } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { z } from "zod";
