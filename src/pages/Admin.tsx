@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Tag, Truck, ShoppingBag, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Package, Tag, Truck, ShoppingBag, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/contexts/CartContext";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 
 const links = [
   { to: "/admin", label: "Resumo", icon: LayoutDashboard, end: true },
   { to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { to: "/admin/produtos", label: "Produtos", icon: Package },
   { to: "/admin/categorias", label: "Categorias", icon: Tag },
+  { to: "/admin/carrossel", label: "Carrossel", icon: ImageIcon },
   { to: "/admin/frete", label: "Frete", icon: Truck },
 ];
 
