@@ -236,7 +236,7 @@ export const AdminProducts = () => {
                 <td className="p-3">{formatBRL(Number(p.price))}</td>
                 <td className="p-3 text-center">{p.active ? "✓" : "—"}</td>
                 <td className="p-3 text-right space-x-2">
-                  <button onClick={() => setEditing(p)} className="text-primary hover:underline text-xs font-semibold">Editar</button>
+                  <button onClick={() => startEdit(p)} className="text-primary hover:underline text-xs font-semibold">Editar</button>
                   <button onClick={() => del(p.id)} className="text-destructive hover:underline text-xs font-semibold">Excluir</button>
                 </td>
               </tr>
