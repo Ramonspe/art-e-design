@@ -6,6 +6,9 @@ import { useCart, formatBRL } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
+import { qualifiesForFreeShipping, remainingForFreeShipping, FREE_SHIPPING_MIN } from "@/lib/freeShipping";
+import { Truck } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -49,14 +52,17 @@ const Checkout = () => {
     try {
       const addr = await fetchAddressByCep(c);
       setForm((f) => ({ ...f, shipping_street: f.shipping_street || addr.street, shipping_district: f.shipping_district || addr.district, shipping_city: addr.city, shipping_state: addr.state }));
-      const q = await quoteShipping(c);
-      if (q) { setShipping(q); toast.success(`Frete: ${q.label}`); }
+      const q = await quoteShipping(c, subtotal);
+      if (q) { setShipping(q); toast.success(q.free ? "Frete grátis aplicado!" : `Frete: ${q.label}`); }
       else { setShipping(null); toast.error("Não atendemos esse CEP no momento."); }
     } catch (e: any) { toast.error(e.message); }
     finally { setCepLoading(false); }
   };
 
-  const total = subtotal + (shipping?.price || 0);
+  // Re-evaluate free shipping when subtotal crosses threshold
+  const isFree = qualifiesForFreeShipping(subtotal);
+  const shippingPrice = shipping ? (isFree ? 0 : shipping.price) : 0;
+  const total = subtotal + shippingPrice;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
