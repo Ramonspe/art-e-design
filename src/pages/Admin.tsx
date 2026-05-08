@@ -344,3 +344,101 @@ const Input = ({ label, wrapperClass = "", ...props }: { label: string; wrapperC
     <input {...props} className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
   </div>
 );
+
+export const AdminSlides = () => {
+  const [slides, setSlides] = useState<any[]>([]);
+  const [editing, setEditing] = useState<any | null>(null);
+
+  const load = () =>
+    supabase.from("hero_slides").select("*").order("sort_order").then(({ data }) => setSlides(data || []));
+  useEffect(() => { load(); }, []);
+
+  const save = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries()) as any;
+    const image = (editing._images || [])[0];
+    if (!image) { alert("Adicione uma imagem para o slide."); return; }
+    const payload = {
+      image,
+      eyebrow: fd.eyebrow || null,
+      title: fd.title,
+      subtitle: fd.subtitle || null,
+      cta_label: fd.cta_label || null,
+      cta_href: fd.cta_href || null,
+      sort_order: Number(fd.sort_order) || 0,
+      active: fd.active === "on",
+    };
+    const res = editing?.id
+      ? await supabase.from("hero_slides").update(payload).eq("id", editing.id)
+      : await supabase.from("hero_slides").insert(payload);
+    if (res.error) alert(res.error.message); else { setEditing(null); load(); }
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Excluir este slide?")) return;
+    await supabase.from("hero_slides").delete().eq("id", id);
+    load();
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-muted-foreground">{slides.length} slide(s) no carrossel da home</p>
+        <Button variant="cta" onClick={() => setEditing({ _images: [], active: true, sort_order: slides.length })}>
+          + Novo slide
+        </Button>
+      </div>
+
+      {editing && (
+        <form onSubmit={save} className="rounded-xl border border-primary bg-card p-5 mb-4 grid sm:grid-cols-2 gap-3">
+          <h3 className="sm:col-span-2 font-bold">{editing.id ? "Editar" : "Novo"} slide</h3>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Imagem de fundo</label>
+            <ImageUploader
+              multiple={false}
+              value={editing._images || []}
+              onChange={(urls) => setEditing((e: any) => ({ ...e, _images: urls }))}
+              recommended="1920x800 px (paisagem widescreen)"
+              hint="Use imagens horizontais de alta qualidade para melhor resultado."
+              pathPrefix="hero"
+            />
+          </div>
+          <Input label="Tag (ex: Coleção 2026)" name="eyebrow" defaultValue={editing.eyebrow || ""} />
+          <Input label="Ordem" name="sort_order" type="number" defaultValue={editing.sort_order ?? 0} />
+          <Input label="Título" name="title" defaultValue={editing.title || ""} required wrapperClass="sm:col-span-2" />
+          <Input label="Subtítulo" name="subtitle" defaultValue={editing.subtitle || ""} wrapperClass="sm:col-span-2" />
+          <Input label="Texto do botão" name="cta_label" defaultValue={editing.cta_label || ""} placeholder="Comprar agora" />
+          <Input label="Link do botão" name="cta_href" defaultValue={editing.cta_href || ""} placeholder="/produtos" />
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="active" defaultChecked={editing.active ?? true} /> Ativo
+          </label>
+          <div className="sm:col-span-2 flex gap-2">
+            <Button type="submit" variant="cta">Salvar</Button>
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+          </div>
+        </form>
+      )}
+
+      <div className="grid gap-3">
+        {slides.length === 0 && <p className="text-muted-foreground text-center py-10">Nenhum slide cadastrado ainda.</p>}
+        {slides.map((s) => (
+          <div key={s.id} className="flex gap-4 rounded-xl border border-border bg-card p-3">
+            <img src={s.image} alt="" className="h-20 w-32 rounded-md object-cover bg-muted" />
+            <div className="flex-1 min-w-0">
+              {s.eyebrow && <p className="text-xs font-bold uppercase tracking-wider text-secondary">{s.eyebrow}</p>}
+              <p className="font-semibold truncate">{s.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{s.subtitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">Ordem: {s.sort_order} • {s.active ? "Ativo" : "Inativo"}</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <button onClick={() => setEditing({ ...s, _images: s.image ? [s.image] : [] })}
+                className="text-primary hover:underline text-xs font-semibold">Editar</button>
+              <button onClick={() => del(s.id)} className="text-destructive hover:underline text-xs font-semibold">Excluir</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
