@@ -141,10 +141,14 @@ export const AdminProducts = () => {
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries()) as any;
+    const images: string[] = editing._images || [];
+    if (images.length === 0) { alert("Adicione pelo menos uma imagem do produto."); return; }
     const payload = {
       slug: fd.slug, name: fd.name, description: fd.description,
       price: Number(fd.price), old_price: fd.old_price ? Number(fd.old_price) : null,
-      image: fd.image || "prod-mug", category_id: fd.category_id || null,
+      image: images[0], gallery: images.slice(1),
+      video_url: fd.video_url ? String(fd.video_url).trim() : null,
+      category_id: fd.category_id || null,
       badge: fd.badge || null, is_template: fd.is_template === "on",
       featured: fd.featured === "on", active: fd.active === "on",
     };
@@ -161,11 +165,18 @@ export const AdminProducts = () => {
     load();
   };
 
+  const startEdit = (p: any) => {
+    const imgs: string[] = [];
+    if (p.image && (p.image.startsWith("http") || p.image.startsWith("/"))) imgs.push(p.image);
+    if (Array.isArray(p.gallery)) imgs.push(...p.gallery.filter((g: string) => !imgs.includes(g)));
+    setEditing({ ...p, _images: imgs });
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-muted-foreground">{products.length} produtos</p>
-        <Button variant="cta" onClick={() => setEditing({})}>+ Novo produto</Button>
+        <Button variant="cta" onClick={() => setEditing({ _images: [] })}>+ Novo produto</Button>
       </div>
 
       {editing && (
@@ -182,11 +193,24 @@ export const AdminProducts = () => {
               <option value="">—</option>
               {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select></div>
-          <Input label="Imagem (chave ou URL)" name="image" defaultValue={editing.image || "prod-mug"} placeholder="prod-mug, prod-tshirt, https://..." />
           <div><label className="text-xs font-medium">Selo</label>
             <select name="badge" defaultValue={editing.badge || ""} className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">Nenhum</option><option value="novo">Novo</option><option value="mais-vendido">Mais vendido</option><option value="promo">Promoção</option>
             </select></div>
+
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Imagens do produto (a primeira é a capa)</label>
+            <ImageUploader
+              value={editing._images || []}
+              onChange={(urls) => setEditing((e: any) => ({ ...e, _images: urls }))}
+              recommended="800x800 px (quadrado, mínimo 600x600)"
+              hint="Selecione várias imagens — a primeira aparece como capa, as demais ficam no carrossel."
+              pathPrefix="products"
+            />
+          </div>
+
+          <Input label="Vídeo do YouTube (URL — opcional)" name="video_url" defaultValue={editing.video_url || ""} placeholder="https://www.youtube.com/watch?v=..." wrapperClass="sm:col-span-2" />
+
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="is_template" defaultChecked={editing.is_template} /> Permite enviar arte</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="featured" defaultChecked={editing.featured} /> Destacar</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={editing.active ?? true} /> Ativo</label>
