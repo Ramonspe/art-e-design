@@ -125,6 +125,17 @@ const Checkout = () => {
   return (
     <form onSubmit={submit} className="container py-10">
       <h1 className="text-3xl font-bold mb-8">Finalizar Compra</h1>
+
+      <div className={`mb-6 rounded-xl border p-4 flex items-center gap-4 ${isFree ? "border-secondary bg-secondary/10" : "border-primary/30 bg-primary/5"}`}>
+        <Truck className={`h-6 w-6 shrink-0 ${isFree ? "text-secondary" : "text-primary"}`} />
+        <div className="flex-1">
+          <p className="font-semibold text-sm">
+            {isFree ? "🎉 Sua compra possui FRETE GRÁTIS!" : `Faltam ${formatBRL(remainingForFreeShipping(subtotal))} para o frete grátis`}
+          </p>
+          <Progress value={Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100)} className="mt-2 h-2" />
+        </div>
+      </div>
+
       {!user && (
         <div className="mb-6 rounded-lg border border-secondary/30 bg-secondary/5 p-4 text-sm">
           <strong>Comprando como convidado.</strong> Para acompanhar seus pedidos, <Link to="/auth?redirect=/checkout" className="text-secondary font-semibold hover:underline">crie uma conta ou entre</Link>.
@@ -151,12 +162,14 @@ const Checkout = () => {
 
           <Section icon={<Truck className="h-5 w-5" />} title="Frete">
             {shipping ? (
-              <div className="flex items-center justify-between p-4 rounded-md border border-primary bg-primary/5">
+              <div className={`flex items-center justify-between p-4 rounded-md border ${isFree ? "border-secondary bg-secondary/10" : "border-primary bg-primary/5"}`}>
                 <div>
                   <p className="font-semibold">{shipping.label}</p>
                   <p className="text-xs text-muted-foreground">{shipping.days} • origem: São Bernardo do Campo - SP</p>
                 </div>
-                <p className="font-bold text-primary">{formatBRL(shipping.price)}</p>
+                <p className={`font-bold ${isFree ? "text-secondary" : "text-primary"}`}>
+                  {isFree ? "GRÁTIS" : formatBRL(shipping.price)}
+                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Informe o CEP acima para calcular o frete automaticamente.</p>
@@ -200,7 +213,7 @@ const Checkout = () => {
           </div>
           <div className="border-t border-border pt-4 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(subtotal)}</span></div>
-            <div className="flex justify-between"><span>Frete</span><span>{shipping ? formatBRL(shipping.price) : "—"}</span></div>
+            <div className="flex justify-between"><span>Frete</span><span className={isFree && shipping ? "text-secondary font-semibold" : ""}>{shipping ? (isFree ? "GRÁTIS" : formatBRL(shipping.price)) : "—"}</span></div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
               <span>Total</span><span className="text-primary">{formatBRL(total)}</span>
             </div>
