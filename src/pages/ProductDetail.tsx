@@ -103,7 +103,7 @@ const ProductDetail = () => {
               <button onClick={() => setQty((q) => q + 1)} className="px-3 py-2 hover:bg-muted" aria-label="Aumentar"><Plus className="h-4 w-4" /></button>
             </div>
             <Button variant="cta" size="lg" className="flex-1" onClick={() => {
-              addItem({ ...product, image: img } as any, qty, v);
+              addItem({ ...product, image: cover } as any, qty, v);
               toast.success("Adicionado ao carrinho", { description: `${qty}x ${product.name}` });
             }}>
               <ShoppingCart className="h-5 w-5" /> Adicionar ao carrinho
