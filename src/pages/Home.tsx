@@ -4,27 +4,38 @@ import { ArrowRight, Frame, Flag, Shirt, Coffee, Gift, CreditCard, Sticker, Truc
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/ProductCard";
 import { useCategories, useProducts } from "@/data/catalog";
+import { supabase } from "@/integrations/supabase/client";
 import hero1 from "@/assets/hero-1.jpg";
 import hero2 from "@/assets/hero-2.jpg";
 import hero3 from "@/assets/hero-3.jpg";
 
-const slides = [
-  { image: hero1, eyebrow: "Coleção 2026", title: "Personalize tudo. Encante a todos.", subtitle: "Quadros, canecas, camisetas e brindes feitos com a sua arte.", cta: "Comprar agora", href: "/produtos" },
-  { image: hero2, eyebrow: "Camisetas Premium", title: "Sua marca em cada estampa.", subtitle: "Tecidos de alta qualidade e impressão de longa duração.", cta: "Ver camisetas", href: "/produtos?cat=camisetas" },
-  { image: hero3, eyebrow: "Decoração", title: "Quadros que transformam ambientes.", subtitle: "Impressão em canvas premium com molduras douradas.", cta: "Ver quadros", href: "/produtos?cat=quadros" },
+type Slide = { image: string; eyebrow?: string | null; title: string; subtitle?: string | null; cta_label?: string | null; cta_href?: string | null };
+
+const fallbackSlides: Slide[] = [
+  { image: hero1, eyebrow: "Coleção 2026", title: "Personalize tudo. Encante a todos.", subtitle: "Quadros, canecas, camisetas e brindes feitos com a sua arte.", cta_label: "Comprar agora", cta_href: "/produtos" },
+  { image: hero2, eyebrow: "Camisetas Premium", title: "Sua marca em cada estampa.", subtitle: "Tecidos de alta qualidade e impressão de longa duração.", cta_label: "Ver camisetas", cta_href: "/produtos?cat=camisetas" },
+  { image: hero3, eyebrow: "Decoração", title: "Quadros que transformam ambientes.", subtitle: "Impressão em canvas premium com molduras douradas.", cta_label: "Ver quadros", cta_href: "/produtos?cat=quadros" },
 ];
 
 const iconMap: Record<string, any> = { Frame, Flag, Shirt, Coffee, Gift, CreditCard, Sticker };
 
 const Home = () => {
   const [slide, setSlide] = useState(0);
+  const [slides, setSlides] = useState<Slide[]>(fallbackSlides);
   const { data: categories = [] } = useCategories();
   const { data: products = [] } = useProducts();
 
   useEffect(() => {
+    supabase.from("hero_slides").select("*").eq("active", true).order("sort_order").then(({ data }) => {
+      if (data && data.length > 0) setSlides(data as Slide[]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
     const t = setInterval(() => setSlide((s) => (s + 1) % slides.length), 6000);
     return () => clearInterval(t);
-  }, []);
+  }, [slides.length]);
 
   const novidades = products.filter((p) => p.badge === "novo").slice(0, 4);
   const maisVendidos = products.filter((p) => p.badge === "mais-vendido").slice(0, 4);
