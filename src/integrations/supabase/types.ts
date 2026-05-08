@@ -95,6 +95,48 @@ export type Database = {
         }
         Relationships: []
       }
+      hero_slides: {
+        Row: {
+          active: boolean
+          created_at: string
+          cta_href: string | null
+          cta_label: string | null
+          eyebrow: string | null
+          id: string
+          image: string
+          sort_order: number
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          cta_href?: string | null
+          cta_label?: string | null
+          eyebrow?: string | null
+          id?: string
+          image: string
+          sort_order?: number
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          cta_href?: string | null
+          cta_label?: string | null
+          eyebrow?: string | null
+          id?: string
+          image?: string
+          sort_order?: number
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           id: string
@@ -277,6 +319,7 @@ export type Database = {
           slug: string
           stock: number | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           active?: boolean
@@ -295,6 +338,7 @@ export type Database = {
           slug: string
           stock?: number | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           active?: boolean
@@ -313,6 +357,7 @@ export type Database = {
           slug?: string
           stock?: number | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {
