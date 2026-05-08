@@ -50,11 +50,15 @@ const Home = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-primary/85 via-primary/60 to-transparent" />
               <div className="container relative h-full flex items-center">
                 <div className="max-w-xl text-primary-foreground">
-                  <span className="inline-block rounded-full bg-accent text-accent-foreground px-3 py-1 text-xs font-bold uppercase tracking-wider">{s.eyebrow}</span>
+                  {s.eyebrow && <span className="inline-block rounded-full bg-accent text-accent-foreground px-3 py-1 text-xs font-bold uppercase tracking-wider">{s.eyebrow}</span>}
                   <h1 className="mt-4 text-4xl md:text-5xl font-bold leading-tight">{s.title}</h1>
-                  <p className="mt-4 text-base md:text-lg text-primary-foreground/90">{s.subtitle}</p>
+                  {s.subtitle && <p className="mt-4 text-base md:text-lg text-primary-foreground/90">{s.subtitle}</p>}
                   <div className="mt-7 flex gap-3">
-                    <Button asChild variant="cta" size="lg"><Link to={s.href}>{s.cta} <ArrowRight className="h-4 w-4" /></Link></Button>
+                    {s.cta_label && (
+                      <Button asChild variant="cta" size="lg">
+                        <Link to={s.cta_href || "/produtos"}>{s.cta_label} <ArrowRight className="h-4 w-4" /></Link>
+                      </Button>
+                    )}
                     <Button asChild variant="outline" size="lg" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">
                       <Link to="/personalizado">Enviar minha arte</Link>
                     </Button>
