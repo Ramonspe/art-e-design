@@ -60,8 +60,8 @@ const Products = () => {
   return (
     <div className="container py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">{currentCat?.name || "Todos os Produtos"}</h1>
-        <p className="text-muted-foreground mt-1">{currentCat?.description || "Explore toda a nossa linha de produtos personalizados."}</p>
+        <h1 className="text-3xl font-bold">{q ? `Resultados para "${q}"` : currentCat?.name || "Todos os Produtos"}</h1>
+        <p className="text-muted-foreground mt-1">{q ? `${filtered.length} produto(s) encontrado(s)` : currentCat?.description || "Explore toda a nossa linha de produtos personalizados."}</p>
       </div>
 
       <div className="grid lg:grid-cols-[260px_1fr] gap-8">
