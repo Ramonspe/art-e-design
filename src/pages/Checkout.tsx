@@ -58,8 +58,9 @@ const Checkout = () => {
     finally { setCepLoading(false); }
   };
 
-  // Re-evaluate free shipping when subtotal crosses threshold
-  const isFree = qualifiesForFreeShipping(subtotal);
+  // Re-evaluate free shipping when subtotal crosses threshold (somente Grande SP)
+  const isFree = qualifiesForFreeShipping(subtotal, form.shipping_cep);
+  const reachedMin = subtotal >= FREE_SHIPPING_MIN;
   const shippingPrice = shipping ? (isFree ? 0 : shipping.price) : 0;
   const total = subtotal + shippingPrice;
 
