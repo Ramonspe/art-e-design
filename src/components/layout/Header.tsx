@@ -47,12 +47,14 @@ const Header = () => {
         </Link>
 
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={submitSearch}
           className="hidden md:flex flex-1 max-w-xl items-center rounded-full border border-border bg-muted px-4 h-11 focus-within:ring-2 focus-within:ring-ring"
         >
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
           <input
             type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="O que você procura hoje?"
             className="flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
             aria-label="Buscar produtos"
