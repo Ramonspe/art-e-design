@@ -97,9 +97,9 @@ const Header = () => {
       {open && (
         <div className="lg:hidden border-t border-border bg-background">
           <div className="container py-3 space-y-1">
-            <form onSubmit={(e) => e.preventDefault()} className="flex md:hidden items-center rounded-full border border-border bg-muted px-4 h-10 mb-3">
+            <form onSubmit={submitSearch} className="flex md:hidden items-center rounded-full border border-border bg-muted px-4 h-10 mb-3">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <input type="search" placeholder="Buscar..." className="flex-1 bg-transparent px-3 text-sm outline-none" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className="flex-1 bg-transparent px-3 text-sm outline-none" />
             </form>
             {nav.map((n) => (
               <NavLink
