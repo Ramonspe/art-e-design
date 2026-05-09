@@ -1,6 +1,6 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingCart, Menu, X, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,22 @@ const Header = () => {
   const { count } = useCart();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  useEffect(() => { setQ(params.get("q") || ""); }, [params]);
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = q.trim();
+    navigate(term ? `/produtos?q=${encodeURIComponent(term)}` : "/produtos");
+    setOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="bg-primary text-primary-foreground text-xs">
         <div className="container flex h-8 items-center justify-between">
-          <span className="hidden sm:inline">🚚 Frete GRÁTIS para compras acima de R$ 199 • Personalize com sua arte</span>
+          <span className="hidden sm:inline">🚚 Frete GRÁTIS na Grande SP em compras acima de R$ 199 • Personalize com sua arte</span>
           <span>WhatsApp {CONTACT.whatsappDisplay}</span>
         </div>
       </div>
@@ -37,12 +47,14 @@ const Header = () => {
         </Link>
 
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={submitSearch}
           className="hidden md:flex flex-1 max-w-xl items-center rounded-full border border-border bg-muted px-4 h-11 focus-within:ring-2 focus-within:ring-ring"
         >
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden />
           <input
             type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="O que você procura hoje?"
             className="flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
             aria-label="Buscar produtos"
@@ -85,9 +97,9 @@ const Header = () => {
       {open && (
         <div className="lg:hidden border-t border-border bg-background">
           <div className="container py-3 space-y-1">
-            <form onSubmit={(e) => e.preventDefault()} className="flex md:hidden items-center rounded-full border border-border bg-muted px-4 h-10 mb-3">
+            <form onSubmit={submitSearch} className="flex md:hidden items-center rounded-full border border-border bg-muted px-4 h-10 mb-3">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <input type="search" placeholder="Buscar..." className="flex-1 bg-transparent px-3 text-sm outline-none" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className="flex-1 bg-transparent px-3 text-sm outline-none" />
             </form>
             {nav.map((n) => (
               <NavLink

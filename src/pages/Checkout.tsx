@@ -58,8 +58,9 @@ const Checkout = () => {
     finally { setCepLoading(false); }
   };
 
-  // Re-evaluate free shipping when subtotal crosses threshold
-  const isFree = qualifiesForFreeShipping(subtotal);
+  // Re-evaluate free shipping when subtotal crosses threshold (somente Grande SP)
+  const isFree = qualifiesForFreeShipping(subtotal, form.shipping_cep);
+  const reachedMin = subtotal >= FREE_SHIPPING_MIN;
   const shippingPrice = shipping ? (isFree ? 0 : shipping.price) : 0;
   const total = subtotal + shippingPrice;
 
@@ -130,9 +131,14 @@ const Checkout = () => {
         <Truck className={`h-6 w-6 shrink-0 ${isFree ? "text-secondary" : "text-primary"}`} />
         <div className="flex-1">
           <p className="font-semibold text-sm">
-            {isFree ? "🎉 Sua compra possui FRETE GRÁTIS!" : `Faltam ${formatBRL(remainingForFreeShipping(subtotal))} para o frete grátis`}
+            {isFree
+              ? "🎉 Sua compra possui FRETE GRÁTIS para a Grande São Paulo!"
+              : reachedMin
+              ? "Você atingiu R$ 199, mas o frete grátis vale apenas para a Grande São Paulo."
+              : `Faltam ${formatBRL(remainingForFreeShipping(subtotal))} para o frete grátis (Grande São Paulo)`}
           </p>
           <Progress value={Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100)} className="mt-2 h-2" />
+          <p className="text-[11px] text-muted-foreground mt-1">*Promoção válida apenas para CEPs da Grande São Paulo (01000-000 a 09999-999).</p>
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import { useCategories, useProducts } from "@/data/catalog";
 const Products = () => {
   const [params, setParams] = useSearchParams();
   const cat = params.get("cat") || "all";
+  const q = (params.get("q") || "").trim().toLowerCase();
   const [sort, setSort] = useState("relevance");
   const [maxPrice, setMaxPrice] = useState<number>(500);
   const [openMobileFilters, setOpenMobileFilters] = useState(false);
@@ -17,12 +18,15 @@ const Products = () => {
   const filtered = useMemo(() => {
     let list = [...products];
     if (cat !== "all") list = list.filter((p) => p.category === cat);
+    if (q) list = list.filter((p) =>
+      [p.name, p.description, p.category].filter(Boolean).join(" ").toLowerCase().includes(q)
+    );
     list = list.filter((p) => p.price <= maxPrice);
     if (sort === "price-asc") list.sort((a, b) => a.price - b.price);
     if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
     if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [cat, sort, maxPrice, products]);
+  }, [cat, q, sort, maxPrice, products]);
 
   const setCat = (c: string) => {
     const p = new URLSearchParams(params);
@@ -56,8 +60,8 @@ const Products = () => {
   return (
     <div className="container py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">{currentCat?.name || "Todos os Produtos"}</h1>
-        <p className="text-muted-foreground mt-1">{currentCat?.description || "Explore toda a nossa linha de produtos personalizados."}</p>
+        <h1 className="text-3xl font-bold">{q ? `Resultados para "${q}"` : currentCat?.name || "Todos os Produtos"}</h1>
+        <p className="text-muted-foreground mt-1">{q ? `${filtered.length} produto(s) encontrado(s)` : currentCat?.description || "Explore toda a nossa linha de produtos personalizados."}</p>
       </div>
 
       <div className="grid lg:grid-cols-[260px_1fr] gap-8">
