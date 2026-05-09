@@ -30,7 +30,7 @@ export async function quoteShipping(cep: string, subtotal = 0): Promise<Shipping
   if (error) throw error;
   const match = (data || []).find((r: any) => c >= r.cep_start && c <= r.cep_end);
   if (!match) return null;
-  const free = qualifiesForFreeShipping(subtotal);
+  const free = qualifiesForFreeShipping(subtotal, c);
   return {
     rate_id: match.id,
     label: free ? `${match.region_name} — FRETE GRÁTIS` : match.region_name,
