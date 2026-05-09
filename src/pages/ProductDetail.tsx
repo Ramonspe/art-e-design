@@ -15,6 +15,7 @@ const ProductDetail = () => {
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
   const [variant, setVariant] = useState<string>("");
+  const [activeImg, setActiveImg] = useState(0);
 
   if (isLoading) return <div className="container py-20 text-center text-muted-foreground">Carregando…</div>;
   if (!product) return <Navigate to="/produtos" replace />;
@@ -23,7 +24,6 @@ const ProductDetail = () => {
   const cover = resolveImage(product.image);
   const gallery = (product.gallery || []).map(resolveImage);
   const allImages = [cover, ...gallery.filter((g) => g !== cover)];
-  const [activeImg, setActiveImg] = useState(0);
   const related = all.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   const ytId = (() => {
