@@ -69,9 +69,7 @@ const Cart = () => {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(subtotal)}</span></div>
             <div className="flex justify-between"><span>Frete</span>
-              <span className={isFree ? "text-secondary font-semibold" : "text-muted-foreground"}>
-                {isFree ? "GRÁTIS" : "Calculado no checkout"}
-              </span>
+              <span className="text-muted-foreground">Calculado no checkout</span>
             </div>
           </div>
           <div className="border-t border-border my-4" />
