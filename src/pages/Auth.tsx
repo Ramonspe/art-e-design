@@ -36,7 +36,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email: p.data.email,
           password: p.data.password,
-          options: { emailRedirectTo: window.location.origin, data: { full_name: p.data.full_name } },
+          options: { emailRedirectTo: window.location.origin + redirect, data: { full_name: p.data.full_name } },
         });
         if (error) throw error;
         toast.success("Conta criada! Você já está logado.");
