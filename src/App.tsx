@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import Account from "./pages/Account";
 import { AdminLayout, AdminDashboard, AdminOrders, AdminProducts, AdminCategories, AdminShipping, AdminSlides } from "./pages/Admin";
 import { RequireAuth, RequireAdmin } from "./components/RequireAuth";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/personalizado" element={<Personalizado />} />
                 <Route path="/contato" element={<Contato />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route path="/conta" element={<RequireAuth><Account /></RequireAuth>} />
                 <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
                   <Route index element={<AdminDashboard />} />
