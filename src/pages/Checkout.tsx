@@ -106,9 +106,21 @@ const Checkout = () => {
       const { error: iErr } = await supabase.from("order_items").insert(itemsRows);
       if (iErr) throw iErr;
 
-      toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato em breve." });
+      // Cria preferência no Mercado Pago e redireciona para o Checkout Pro
+      toast.loading("Redirecionando para o pagamento seguro...", { id: "mp" });
+      const { data: mp, error: mpErr } = await supabase.functions.invoke("create-mp-preference", {
+        body: { order_id: order.id },
+      });
+      if (mpErr || !mp?.init_point) {
+        toast.dismiss("mp");
+        toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato pelo WhatsApp." });
+        clear();
+        nav(user ? "/conta" : "/");
+        return;
+      }
       clear();
-      nav(user ? "/conta" : "/");
+      toast.dismiss("mp");
+      window.location.href = mp.init_point;
     } catch (err: any) {
       toast.error("Erro ao registrar pedido", { description: err.message });
     } finally { setSubmitting(false); }
