@@ -194,21 +194,18 @@ const Checkout = () => {
             )}
           </Section>
 
-          <Section icon={<CreditCard className="h-5 w-5" />} title="Forma de pagamento">
-            <div className="space-y-2">
-              {[
-                { v: "pix", label: "PIX (5% de desconto*)" },
-                { v: "cartao", label: "Cartão de Crédito (em até 6x sem juros)" },
-                { v: "boleto", label: "Boleto Bancário" },
-              ].map((p) => (
-                <label key={p.v} className={`flex items-center gap-3 p-4 rounded-md border cursor-pointer transition-smooth ${payment === p.v ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-                  <input type="radio" name="payment" value={p.v} checked={payment === p.v} onChange={() => setPayment(p.v)} className="accent-primary" />
-                  <span className="text-sm font-medium">{p.label}</span>
-                </label>
-              ))}
-              <p className="text-xs text-muted-foreground mt-2">Após registrar o pedido, nossa equipe entrará em contato pelo WhatsApp/e-mail com a chave PIX, link de pagamento ou boleto. *Desconto aplicado manualmente.</p>
+          <Section icon={<CreditCard className="h-5 w-5" />} title="Pagamento seguro via Mercado Pago">
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-4 text-sm space-y-2">
+              <p className="font-semibold">Você será redirecionado para o ambiente seguro do Mercado Pago para escolher:</p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+                <li><strong>PIX</strong> — aprovação imediata</li>
+                <li><strong>Cartão de Crédito</strong> — em até 3x sem juros</li>
+                <li><strong>Boleto Bancário</strong></li>
+              </ul>
+              <p className="text-xs text-muted-foreground pt-2">Ao confirmar o pedido, o link de pagamento é gerado automaticamente. Seus dados de cartão não passam pelo nosso site.</p>
             </div>
           </Section>
+
 
           <Section icon={<MapPin className="h-5 w-5" />} title="Observações (opcional)">
             <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} maxLength={500} className="w-full rounded-md border border-input bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Detalhes da personalização, prazo, etc." />
