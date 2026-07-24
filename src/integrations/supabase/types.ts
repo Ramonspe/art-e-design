@@ -197,9 +197,13 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id: string
+          mp_payment_id: string | null
+          mp_preference_id: string | null
           notes: string | null
           order_number: number
+          paid_at: string | null
           payment_method: string
+          payment_status: string | null
           shipping_cep: string
           shipping_city: string
           shipping_complement: string | null
@@ -223,9 +227,13 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id?: string
+          mp_payment_id?: string | null
+          mp_preference_id?: string | null
           notes?: string | null
           order_number?: number
+          paid_at?: string | null
           payment_method: string
+          payment_status?: string | null
           shipping_cep: string
           shipping_city: string
           shipping_complement?: string | null
@@ -249,9 +257,13 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           id?: string
+          mp_payment_id?: string | null
+          mp_preference_id?: string | null
           notes?: string | null
           order_number?: number
+          paid_at?: string | null
           payment_method?: string
+          payment_status?: string | null
           shipping_cep?: string
           shipping_city?: string
           shipping_complement?: string | null
