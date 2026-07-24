@@ -1,0 +1,89 @@
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { CheckCircle2, Clock, XCircle, MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { formatBRL } from "@/contexts/CartContext";
+import { openWhatsApp } from "@/data/contact";
+
+const statusInfo = (mpStatus?: string | null, orderStatus?: string) => {
+  const s = (mpStatus || orderStatus || "pending").toLowerCase();
+  if (["approved", "pago", "paid"].includes(s)) return { icon: CheckCircle2, color: "text-secondary", bg: "bg-secondary/10 border-secondary", title: "Pagamento aprovado!", desc: "Recebemos seu pagamento. Já estamos preparando seu pedido." };
+  if (["rejected", "cancelled", "failed", "cancelado"].includes(s)) return { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10 border-destructive", title: "Pagamento não concluído", desc: "Seu pagamento não foi aprovado. Você pode tentar novamente." };
+  return { icon: Clock, color: "text-primary", bg: "bg-primary/10 border-primary", title: "Aguardando confirmação do pagamento", desc: "Se você pagou por PIX ou boleto, a confirmação chega em minutos. Você receberá um e-mail assim que aprovado." };
+};
+
+const OrderConfirmation = () => {
+  const [params] = useSearchParams();
+  const orderId = params.get("order");
+  const mpStatus = params.get("status");
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!orderId) { setLoading(false); return; }
+    (async () => {
+      const { data } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
+      setOrder(data);
+      setLoading(false);
+    })();
+  }, [orderId]);
+
+  if (loading) return <div className="container py-20 text-center">Carregando…</div>;
+
+  if (!order) {
+    return (
+      <div className="container py-20 text-center">
+        <h1 className="text-2xl font-bold mb-4">Pedido não encontrado</h1>
+        <Button asChild variant="cta"><Link to="/">Voltar ao início</Link></Button>
+      </div>
+    );
+  }
+
+  const info = statusInfo(mpStatus || order.payment_status, order.status);
+  const Icon = info.icon;
+
+  return (
+    <div className="container py-14 max-w-2xl">
+      <div className={`rounded-2xl border-2 ${info.bg} p-8 text-center mb-6`}>
+        <Icon className={`h-16 w-16 mx-auto mb-4 ${info.color}`} />
+        <h1 className="text-2xl font-bold mb-2">{info.title}</h1>
+        <p className="text-muted-foreground">{info.desc}</p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Nº do pedido</span>
+          <span className="font-bold">#{order.order_number}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Total</span>
+          <span className="font-bold text-primary">{formatBRL(Number(order.total))}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Entrega</span>
+          <span>{order.shipping_city} - {order.shipping_state}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Status do pagamento</span>
+          <span className="font-semibold capitalize">{order.payment_status || "pendente"}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 mt-6">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => openWhatsApp(`Olá! Acabei de fazer o pedido #${order.order_number} no site. Poderia me atualizar?`)}
+        >
+          <MessageCircle className="h-4 w-4" /> Falar no WhatsApp
+        </Button>
+        <Button asChild variant="cta" className="flex-1">
+          <Link to="/produtos">Continuar comprando</Link>
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default OrderConfirmation;

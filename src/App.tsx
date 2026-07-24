@@ -11,6 +11,7 @@ import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import Personalizado from "./pages/Personalizado";
 import Contato from "./pages/Contato";
 import Auth from "./pages/Auth";
@@ -37,6 +38,7 @@ const App = () => (
                 <Route path="/produto/:slug" element={<ProductDetail />} />
                 <Route path="/carrinho" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/pedido-confirmado" element={<OrderConfirmation />} />
                 <Route path="/personalizado" element={<Personalizado />} />
                 <Route path="/contato" element={<Contato />} />
                 <Route path="/auth" element={<Auth />} />

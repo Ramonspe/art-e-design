@@ -88,7 +88,7 @@ const Checkout = () => {
         shipping_cost: shippingPrice,
         subtotal,
         total,
-        payment_method: payment,
+        payment_method: "mercadopago",
         notes: parsed.data.notes || null,
       }).select().single();
       if (oErr) throw oErr;
@@ -106,9 +106,21 @@ const Checkout = () => {
       const { error: iErr } = await supabase.from("order_items").insert(itemsRows);
       if (iErr) throw iErr;
 
-      toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato em breve." });
+      // Cria preferência no Mercado Pago e redireciona para o Checkout Pro
+      toast.loading("Redirecionando para o pagamento seguro...", { id: "mp" });
+      const { data: mp, error: mpErr } = await supabase.functions.invoke("create-mp-preference", {
+        body: { order_id: order.id },
+      });
+      if (mpErr || !mp?.init_point) {
+        toast.dismiss("mp");
+        toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato pelo WhatsApp." });
+        clear();
+        nav(user ? "/conta" : "/");
+        return;
+      }
       clear();
-      nav(user ? "/conta" : "/");
+      toast.dismiss("mp");
+      window.location.href = mp.init_point;
     } catch (err: any) {
       toast.error("Erro ao registrar pedido", { description: err.message });
     } finally { setSubmitting(false); }
@@ -182,21 +194,18 @@ const Checkout = () => {
             )}
           </Section>
 
-          <Section icon={<CreditCard className="h-5 w-5" />} title="Forma de pagamento">
-            <div className="space-y-2">
-              {[
-                { v: "pix", label: "PIX (5% de desconto*)" },
-                { v: "cartao", label: "Cartão de Crédito (em até 6x sem juros)" },
-                { v: "boleto", label: "Boleto Bancário" },
-              ].map((p) => (
-                <label key={p.v} className={`flex items-center gap-3 p-4 rounded-md border cursor-pointer transition-smooth ${payment === p.v ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
-                  <input type="radio" name="payment" value={p.v} checked={payment === p.v} onChange={() => setPayment(p.v)} className="accent-primary" />
-                  <span className="text-sm font-medium">{p.label}</span>
-                </label>
-              ))}
-              <p className="text-xs text-muted-foreground mt-2">Após registrar o pedido, nossa equipe entrará em contato pelo WhatsApp/e-mail com a chave PIX, link de pagamento ou boleto. *Desconto aplicado manualmente.</p>
+          <Section icon={<CreditCard className="h-5 w-5" />} title="Pagamento seguro via Mercado Pago">
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-4 text-sm space-y-2">
+              <p className="font-semibold">Você será redirecionado para o ambiente seguro do Mercado Pago para escolher:</p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+                <li><strong>PIX</strong> — aprovação imediata</li>
+                <li><strong>Cartão de Crédito</strong> — em até 3x sem juros</li>
+                <li><strong>Boleto Bancário</strong></li>
+              </ul>
+              <p className="text-xs text-muted-foreground pt-2">Ao confirmar o pedido, o link de pagamento é gerado automaticamente. Seus dados de cartão não passam pelo nosso site.</p>
             </div>
           </Section>
+
 
           <Section icon={<MapPin className="h-5 w-5" />} title="Observações (opcional)">
             <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} maxLength={500} className="w-full rounded-md border border-input bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Detalhes da personalização, prazo, etc." />
@@ -225,8 +234,9 @@ const Checkout = () => {
             </div>
           </div>
           <Button type="submit" variant="cta" size="lg" className="w-full mt-6" disabled={submitting}>
-            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Enviando..." : "Confirmar pedido"}
+            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Processando..." : "Pagar com Mercado Pago"}
           </Button>
+          <p className="text-[11px] text-muted-foreground text-center mt-3">🔒 Ambiente 100% seguro. Você será redirecionado.</p>
         </aside>
       </div>
     </form>
