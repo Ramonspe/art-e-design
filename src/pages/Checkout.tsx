@@ -234,8 +234,9 @@ const Checkout = () => {
             </div>
           </div>
           <Button type="submit" variant="cta" size="lg" className="w-full mt-6" disabled={submitting}>
-            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Enviando..." : "Confirmar pedido"}
+            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Processando..." : "Pagar com Mercado Pago"}
           </Button>
+          <p className="text-[11px] text-muted-foreground text-center mt-3">🔒 Ambiente 100% seguro. Você será redirecionado.</p>
         </aside>
       </div>
     </form>
