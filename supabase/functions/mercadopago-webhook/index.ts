@@ -46,22 +46,20 @@ function timingSafeEqual(a: string, b: string): boolean {
   return out === 0
 }
 
+// Maps a Mercado Pago payment status to a valid public.order_status enum value.
+// Valid enum values: 'pendente','confirmado','em_producao','enviado','entregue','cancelado'.
 function mpStatusToOrderStatus(status: string): string {
   switch (status) {
     case 'approved':
-      return 'pago'
-    case 'pending':
-    case 'in_process':
-    case 'authorized':
-      return 'aguardando_pagamento'
-    case 'rejected':
-      return 'falhou'
+      return 'confirmado'
     case 'cancelled':
     case 'refunded':
     case 'charged_back':
+    case 'rejected':
       return 'cancelado'
+    // pending / in_process / authorized → keep as awaiting: leave order in 'pendente'
     default:
-      return 'aguardando_pagamento'
+      return 'pendente'
   }
 }
 
@@ -141,7 +139,8 @@ Deno.serve(async (req) => {
   const payment = await mpRes.json()
 
   const externalRef = payment?.external_reference
-  const status = mpStatusToOrderStatus(String(payment?.status ?? ''))
+  const mpStatus = String(payment?.status ?? '')
+  const status = mpStatusToOrderStatus(mpStatus)
   const paidAt = payment?.status === 'approved'
     ? (payment?.date_approved ?? new Date().toISOString())
     : null
@@ -155,6 +154,7 @@ Deno.serve(async (req) => {
 
   const update: Record<string, unknown> = {
     status,
+    payment_status: mpStatus,
     mp_payment_id: String(payment.id),
   }
   if (paidAt) update.paid_at = paidAt

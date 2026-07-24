@@ -23,8 +23,12 @@ const OrderConfirmation = () => {
   useEffect(() => {
     if (!orderId) { setLoading(false); return; }
     (async () => {
-      const { data } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
-      setOrder(data);
+      // Usa a edge function para funcionar também na compra como convidado
+      // (o RLS só permite o próprio usuário ler seus pedidos).
+      const { data } = await supabase.functions.invoke("get-order", {
+        body: { order_id: orderId },
+      });
+      setOrder(data?.order ?? null);
       setLoading(false);
     })();
   }, [orderId]);

@@ -71,57 +71,55 @@ const Checkout = () => {
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setSubmitting(true);
     try {
-      const { data: order, error: oErr } = await supabase.from("orders").insert({
-        user_id: user?.id || null,
-        customer_name: parsed.data.customer_name,
-        customer_email: parsed.data.customer_email,
-        customer_phone: parsed.data.customer_phone,
-        customer_cpf: parsed.data.customer_cpf || null,
-        shipping_cep: parsed.data.shipping_cep,
-        shipping_street: parsed.data.shipping_street,
-        shipping_number: parsed.data.shipping_number,
-        shipping_complement: parsed.data.shipping_complement || null,
-        shipping_district: parsed.data.shipping_district,
-        shipping_city: parsed.data.shipping_city,
-        shipping_state: parsed.data.shipping_state,
-        shipping_method: isFree ? `${shipping.label}` : shipping.label,
-        shipping_cost: shippingPrice,
-        subtotal,
-        total,
-        payment_method: "mercadopago",
-        notes: parsed.data.notes || null,
-      }).select().single();
-      if (oErr) throw oErr;
-
-      const itemsRows = items.map((i) => ({
-        order_id: order.id,
-        product_id: i.productId,
-        product_name: i.name,
-        product_image: i.image,
-        variant: i.variant || null,
-        unit_price: i.price,
-        quantity: i.quantity,
-        subtotal: i.price * i.quantity,
-      }));
-      const { error: iErr } = await supabase.from("order_items").insert(itemsRows);
-      if (iErr) throw iErr;
-
-      // Cria preferência no Mercado Pago e redireciona para o Checkout Pro
+      // O pedido é criado no servidor (edge function com service_role) para funcionar
+      // também na compra como convidado, e a preferência do Mercado Pago é gerada na
+      // mesma chamada. O JWT do usuário logado (se houver) é enviado automaticamente.
       toast.loading("Redirecionando para o pagamento seguro...", { id: "mp" });
       const { data: mp, error: mpErr } = await supabase.functions.invoke("create-mp-preference", {
-        body: { order_id: order.id },
+        body: {
+          order: {
+            customer_name: parsed.data.customer_name,
+            customer_email: parsed.data.customer_email,
+            customer_phone: parsed.data.customer_phone,
+            customer_cpf: parsed.data.customer_cpf || null,
+            shipping_cep: parsed.data.shipping_cep,
+            shipping_street: parsed.data.shipping_street,
+            shipping_number: parsed.data.shipping_number,
+            shipping_complement: parsed.data.shipping_complement || null,
+            shipping_district: parsed.data.shipping_district,
+            shipping_city: parsed.data.shipping_city,
+            shipping_state: parsed.data.shipping_state,
+            shipping_method: shipping.label,
+            shipping_cost: shippingPrice,
+            notes: parsed.data.notes || null,
+          },
+          items: items.map((i) => ({
+            product_id: i.productId,
+            product_name: i.name,
+            product_image: i.image,
+            variant: i.variant || null,
+            unit_price: i.price,
+            quantity: i.quantity,
+          })),
+        },
       });
+
       if (mpErr || !mp?.init_point) {
         toast.dismiss("mp");
-        toast.success(`Pedido #${order.order_number} registrado!`, { description: "Entraremos em contato pelo WhatsApp." });
-        clear();
-        nav(user ? "/conta" : "/");
-        return;
+        if (mp?.order_number) {
+          toast.success(`Pedido #${mp.order_number} registrado!`, { description: "Entraremos em contato pelo WhatsApp." });
+          clear();
+          nav(user ? "/conta" : "/");
+          return;
+        }
+        throw new Error(mpErr?.message || (mp as any)?.error || "Não foi possível iniciar o pagamento.");
       }
+
       clear();
       toast.dismiss("mp");
       window.location.href = mp.init_point;
     } catch (err: any) {
+      toast.dismiss("mp");
       toast.error("Erro ao registrar pedido", { description: err.message });
     } finally { setSubmitting(false); }
   };
