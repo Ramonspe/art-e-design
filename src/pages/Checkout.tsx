@@ -88,7 +88,7 @@ const Checkout = () => {
         shipping_cost: shippingPrice,
         subtotal,
         total,
-        payment_method: payment,
+        payment_method: "mercadopago",
         notes: parsed.data.notes || null,
       }).select().single();
       if (oErr) throw oErr;
