@@ -13,7 +13,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
-      host: "127.0.0.1",
+      // Lovable proxies the Linux dev server from outside its sandbox.
+      // Keep Windows local-only while allowing that proxy to reach Vite.
+      host: process.platform === "win32" ? "127.0.0.1" : "::",
       port: 8080,
       hmr: {
         overlay: false,
