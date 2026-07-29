@@ -87,8 +87,9 @@ Deno.serve(async (req) => {
   const { ts, v1 } = parseSignatureHeader(req.headers.get('x-signature'))
 
   // Parse body to get data.id (MP sends { type, data: { id } })
-  let body: any = {}
-  try { body = rawBody ? JSON.parse(rawBody) : {} } catch { body = {} }
+  type WebhookBody = { data?: { id?: string | number } }
+  let body: WebhookBody = {}
+  try { body = rawBody ? JSON.parse(rawBody) as WebhookBody : {} } catch { /* mantém o corpo vazio */ }
   const dataId = String(body?.data?.id ?? queryDataId ?? '')
 
   if (!ts || !v1) {
