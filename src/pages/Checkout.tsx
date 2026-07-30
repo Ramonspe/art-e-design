@@ -6,8 +6,6 @@ import { useCart, formatBRL } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
-import { qualifiesForFreeShipping, remainingForFreeShipping, FREE_SHIPPING_MIN } from "@/lib/freeShipping";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -51,17 +49,14 @@ const Checkout = () => {
     try {
       const addr = await fetchAddressByCep(c);
       setForm((f) => ({ ...f, shipping_street: f.shipping_street || addr.street, shipping_district: f.shipping_district || addr.district, shipping_city: addr.city, shipping_state: addr.state }));
-      const q = await quoteShipping(c, subtotal);
-      if (q) { setShipping(q); toast.success(q.free ? "Frete grátis aplicado!" : `Frete: ${q.label}`); }
+      const q = await quoteShipping(c);
+      if (q) { setShipping(q); toast.success(`Frete: ${q.label}`); }
       else { setShipping(null); toast.error("Não atendemos esse CEP no momento."); }
     } catch (e: any) { toast.error(e.message); }
     finally { setCepLoading(false); }
   };
 
-  // Re-evaluate free shipping when subtotal crosses threshold (somente Grande SP)
-  const isFree = qualifiesForFreeShipping(subtotal, form.shipping_cep);
-  const reachedMin = subtotal >= FREE_SHIPPING_MIN;
-  const shippingPrice = shipping ? (isFree ? 0 : shipping.price) : 0;
+  const shippingPrice = shipping?.price ?? 0;
   const total = subtotal + shippingPrice;
 
   const submit = async (e: React.FormEvent) => {
@@ -137,21 +132,6 @@ const Checkout = () => {
     <form onSubmit={submit} className="container py-10">
       <h1 className="text-3xl font-bold mb-8">Finalizar Compra</h1>
 
-      <div className={`mb-6 rounded-xl border p-4 flex items-center gap-4 ${isFree ? "border-secondary bg-secondary/10" : "border-primary/30 bg-primary/5"}`}>
-        <Truck className={`h-6 w-6 shrink-0 ${isFree ? "text-secondary" : "text-primary"}`} />
-        <div className="flex-1">
-          <p className="font-semibold text-sm">
-            {isFree
-              ? "🎉 Sua compra possui FRETE GRÁTIS para a Grande São Paulo!"
-              : reachedMin
-              ? "Você atingiu R$ 199, mas o frete grátis vale apenas para a Grande São Paulo."
-              : `Faltam ${formatBRL(remainingForFreeShipping(subtotal))} para o frete grátis (Grande São Paulo)`}
-          </p>
-          <Progress value={Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100)} className="mt-2 h-2" />
-          <p className="text-[11px] text-muted-foreground mt-1">*Promoção válida apenas para CEPs da Grande São Paulo (01000-000 a 09999-999).</p>
-        </div>
-      </div>
-
       {!user && (
         <div className="mb-6 rounded-lg border border-secondary/30 bg-secondary/5 p-4 text-sm">
           <strong>Comprando como convidado.</strong> Para acompanhar seus pedidos, <Link to="/auth?redirect=/checkout" className="text-secondary font-semibold hover:underline">crie uma conta ou entre</Link>.
@@ -178,14 +158,12 @@ const Checkout = () => {
 
           <Section icon={<Truck className="h-5 w-5" />} title="Frete">
             {shipping ? (
-              <div className={`flex items-center justify-between p-4 rounded-md border ${isFree ? "border-secondary bg-secondary/10" : "border-primary bg-primary/5"}`}>
+              <div className="flex items-center justify-between rounded-md border border-primary bg-primary/5 p-4">
                 <div>
                   <p className="font-semibold">{shipping.label}</p>
                   <p className="text-xs text-muted-foreground">{shipping.days} • origem: São Bernardo do Campo - SP</p>
                 </div>
-                <p className={`font-bold ${isFree ? "text-secondary" : "text-primary"}`}>
-                  {isFree ? "GRÁTIS" : formatBRL(shipping.price)}
-                </p>
+                <p className="font-bold text-primary">{formatBRL(shipping.price)}</p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Informe o CEP acima para calcular o frete automaticamente.</p>
@@ -226,7 +204,7 @@ const Checkout = () => {
           </div>
           <div className="border-t border-border pt-4 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatBRL(subtotal)}</span></div>
-            <div className="flex justify-between"><span>Frete</span><span className={isFree && shipping ? "text-secondary font-semibold" : ""}>{shipping ? (isFree ? "GRÁTIS" : formatBRL(shipping.price)) : "—"}</span></div>
+            <div className="flex justify-between"><span>Frete</span><span>{shipping ? formatBRL(shipping.price) : "—"}</span></div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border">
               <span>Total</span><span className="text-primary">{formatBRL(total)}</span>
             </div>

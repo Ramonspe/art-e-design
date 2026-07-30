@@ -78,7 +78,7 @@ const Home = () => {
       <section className="border-b border-border bg-muted/40">
         <div className="container py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: Truck, title: "Frete GRÁTIS acima de R$ 199", desc: "Para todo Brasil" },
+            { icon: Truck, title: "Entrega para todo Brasil", desc: "Frete calculado no checkout" },
             { icon: ShieldCheck, title: "Compra 100% segura", desc: "Pagamento criptografado" },
             { icon: Sparkles, title: "Qualidade garantida", desc: "Materiais premium" },
             { icon: Headphones, title: "Atendimento humano", desc: "WhatsApp em horário comercial" },

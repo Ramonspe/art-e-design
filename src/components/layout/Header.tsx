@@ -33,7 +33,7 @@ const Header = () => {
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="bg-primary text-primary-foreground text-xs">
         <div className="container flex h-8 items-center justify-between">
-          <span className="hidden sm:inline">🚚 Frete GRÁTIS na Grande SP em compras acima de R$ 199 • Personalize com sua arte</span>
+          <span className="hidden sm:inline">Personalize com sua arte</span>
           <span>WhatsApp {CONTACT.whatsappDisplay}</span>
         </div>
       </div>
