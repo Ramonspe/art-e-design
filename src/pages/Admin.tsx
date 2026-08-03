@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/contexts/CartContext";
 import { ImageUploader } from "@/components/admin/ImageUploader";
+import { toast } from "sonner";
 
 const links = [
   { to: "/admin", label: "Resumo", icon: LayoutDashboard, end: true },
@@ -81,7 +82,12 @@ export const AdminOrders = () => {
   const load = () => supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false }).then(({ data }) => setOrders(data || []));
   useEffect(() => { load(); }, []);
   const update = async (id: string, status: string) => {
-    await supabase.from("orders").update({ status: status as any }).eq("id", id);
+    const { error } = await supabase.functions.invoke("update-order-status", { body: { order_id: id, status } });
+    if (error) {
+      toast.error("Não foi possível atualizar o pedido.");
+      return;
+    }
+    toast.success("Status atualizado. O cliente será notificado por e-mail.");
     load();
   };
   return (

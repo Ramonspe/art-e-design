@@ -58,8 +58,19 @@ As Edge Functions usam variáveis configuradas no Supabase/Lovable Cloud, não n
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MERCADOPAGO_ACCESS_TOKEN`
 - `MERCADOPAGO_WEBHOOK_SECRET`
+- `SITE_URL` (URL pública final da loja, usada no retorno do pagamento)
+- `RESEND_API_KEY` (chave do Resend para e-mails transacionais)
+- `RESEND_FROM_EMAIL` (remetente verificado no Resend, por exemplo `pedidos@seudominio.com.br`)
 
 Nunca registre valores reais dessas variáveis no Git.
+
+## Notificações de pedidos
+
+O protocolo exibido para o cliente é o número do pedido. A loja envia e-mails na
+criação do pedido, na aprovação do pagamento e a cada mudança de status feita
+no painel administrativo. Para habilitar o envio em produção, configure
+`RESEND_API_KEY` e `RESEND_FROM_EMAIL` como segredos das Edge Functions. Sem
+essas variáveis, o pedido continua funcionando, mas o envio de e-mails é pulado.
 
 ## Comandos
 
