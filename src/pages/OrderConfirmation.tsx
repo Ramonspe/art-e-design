@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Clock, XCircle, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL } from "@/contexts/CartContext";
+import { formatBRL, useCart } from "@/contexts/CartContext";
 import { openWhatsApp } from "@/data/contact";
 
 const statusInfo = (mpStatus?: string | null, orderStatus?: string) => {
@@ -17,21 +17,38 @@ const OrderConfirmation = () => {
   const [params] = useSearchParams();
   const orderId = params.get("order");
   const mpStatus = params.get("status");
+  const { clear } = useCart();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!orderId) { setLoading(false); return; }
-    (async () => {
+    let attempts = 0;
+    const loadOrder = async () => {
       // Usa a edge function para funcionar também na compra como convidado
       // (o RLS só permite o próprio usuário ler seus pedidos).
       const { data } = await supabase.functions.invoke("get-order", {
         body: { order_id: orderId },
       });
-      setOrder(data?.order ?? null);
+      const nextOrder = data?.order ?? null;
+      setOrder(nextOrder);
       setLoading(false);
-    })();
-  }, [orderId]);
+      if (nextOrder?.payment_status === "approved") {
+        clear();
+        clearInterval(timer);
+      }
+    };
+    void loadOrder();
+    const timer = setInterval(() => {
+      attempts += 1;
+      if (attempts >= 10) {
+        clearInterval(timer);
+        return;
+      }
+      void loadOrder();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [orderId, clear]);
 
   if (loading) return <div className="container py-20 text-center">Carregando…</div>;
 

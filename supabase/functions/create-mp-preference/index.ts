@@ -1,11 +1,5 @@
-// Create the order (server-side, service_role) + Mercado Pago Checkout Pro preference.
-//
-// Why server-side: guest checkout inserts an order with user_id = NULL. The client
-// cannot INSERT+SELECT it back (RLS SELECT policy only exposes the buyer's own rows),
-// which surfaces as "new row violates row-level security policy for table orders".
-// Creating the order here with the service role bypasses RLS safely and returns the
-// data the client needs (order_number, init_point).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendOrderStatusEmail } from "../_shared/order-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,23 +7,38 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
 
-type IncomingItem = {
-  product_id?: string | null;
-  product_name: string;
-  product_image?: string | null;
-  variant?: string | null;
-  unit_price: number;
-  quantity: number;
-};
+type IncomingItem = { product_id?: string | null; variant?: string | null; quantity?: number };
+type ProductRow = { id: string; name: string; price: number; image: string; stock: number | null };
+type VariantRow = { product_id: string; options: string[] };
+type ShippingRate = { id: string; region_name: string; price: number; delivery_days_min: number; delivery_days_max: number };
+
+const STATES = new Set(["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]);
+const digitsOnly = (value: unknown) => String(value ?? "").replace(/\D/g, "");
+const stringValue = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+
+function isValidCpf(value: string) {
+  const cpf = digitsOnly(value);
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digitAt = (length: number) => {
+    const sum = cpf.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+  return digitAt(9) === Number(cpf[9]) && digitAt(10) === Number(cpf[10]);
+}
+
+function isValidBrazilianPhone(value: string) {
+  return /^(?:[1-9]\d)(?:9\d{8}|[2-9]\d{7})$/.test(digitsOnly(value));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
     const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
@@ -40,181 +49,153 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
-
     const payload = await req.json().catch(() => null);
     const orderInput = payload?.order;
-    const items: IncomingItem[] = Array.isArray(payload?.items) ? payload.items : [];
+    const incomingItems: IncomingItem[] = Array.isArray(payload?.items) ? payload.items : [];
+    if (!orderInput || incomingItems.length === 0) return json({ error: "order and items are required" }, 400);
 
-    if (!orderInput || items.length === 0) {
-      return json({ error: "order and items are required" }, 400);
+    const customerName = stringValue(orderInput.customer_name, 120);
+    const customerEmail = stringValue(orderInput.customer_email, 255).toLowerCase();
+    const customerPhone = stringValue(orderInput.customer_phone, 30);
+    const customerCpf = digitsOnly(orderInput.customer_cpf);
+    const shippingCep = digitsOnly(orderInput.shipping_cep);
+    const shippingState = stringValue(orderInput.shipping_state, 2).toUpperCase();
+    const address = {
+      shipping_street: stringValue(orderInput.shipping_street, 200),
+      shipping_number: stringValue(orderInput.shipping_number, 20),
+      shipping_complement: stringValue(orderInput.shipping_complement, 120) || null,
+      shipping_district: stringValue(orderInput.shipping_district, 120),
+      shipping_city: stringValue(orderInput.shipping_city, 120),
+    };
+    if (customerName.length < 2 || !/^\S+@\S+\.\S+$/.test(customerEmail) || !isValidBrazilianPhone(customerPhone) || !isValidCpf(customerCpf) || shippingCep.length !== 8 || !STATES.has(shippingState) || Object.values(address).some((value) => value !== null && value.length === 0)) {
+      return json({ error: "Invalid checkout data" }, 400);
     }
 
-    // Derive the buyer from the JWT when authenticated; guests stay anonymous (user_id NULL).
+    const requested = new Map<string, { productId: string; variant: string | null; quantity: number }>();
+    for (const item of incomingItems) {
+      const productId = stringValue(item.product_id, 36);
+      const variant = stringValue(item.variant, 120) || null;
+      const quantity = Math.floor(Number(item.quantity));
+      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) return json({ error: "Invalid cart item" }, 400);
+      const key = `${productId}:${variant ?? ""}`;
+      const existing = requested.get(key);
+      requested.set(key, { productId, variant, quantity: (existing?.quantity ?? 0) + quantity });
+    }
+    if ([...requested.values()].some((item) => item.quantity > 100)) return json({ error: "Invalid item quantity" }, 400);
+
+    const productIds = [...new Set([...requested.values()].map((item) => item.productId))];
+    const [{ data: products, error: productsError }, { data: variants, error: variantsError }, { data: rates, error: ratesError }] = await Promise.all([
+      supabase.from("products").select("id,name,price,image,stock").in("id", productIds).eq("active", true),
+      supabase.from("product_variants").select("product_id,options").in("product_id", productIds),
+      supabase.from("shipping_rates").select("id,region_name,price,delivery_days_min,delivery_days_max").eq("active", true).lte("cep_start", shippingCep).gte("cep_end", shippingCep).limit(1),
+    ]);
+    if (productsError || variantsError || ratesError) throw new Error(productsError?.message || variantsError?.message || ratesError?.message || "Failed to validate checkout");
+    if (!products || products.length !== productIds.length) return json({ error: "One or more products are unavailable" }, 409);
+    const shippingRate = rates?.[0] as ShippingRate | undefined;
+    if (!shippingRate) return json({ error: "Shipping is unavailable for this CEP" }, 422);
+
+    const productById = new Map((products as ProductRow[]).map((product) => [product.id, product]));
+    const variantsByProduct = new Map<string, string[]>();
+    for (const variant of (variants ?? []) as VariantRow[]) {
+      variantsByProduct.set(variant.product_id, [...(variantsByProduct.get(variant.product_id) ?? []), ...variant.options]);
+    }
+
+    const cleanItems = [...requested.values()].map((item) => {
+      const product = productById.get(item.productId)!;
+      if (item.variant && !variantsByProduct.get(item.productId)?.includes(item.variant)) throw new Error("Invalid product variant");
+      if (product.stock !== null && item.quantity > product.stock) throw new Error(`Insufficient stock for ${product.name}`);
+      const unitPrice = Number(product.price);
+      return {
+        product_id: product.id,
+        product_name: product.name,
+        product_image: product.image,
+        variant: item.variant,
+        unit_price: unitPrice,
+        quantity: item.quantity,
+        subtotal: Number((unitPrice * item.quantity).toFixed(2)),
+      };
+    });
+    const subtotal = Number(cleanItems.reduce((total, item) => total + item.subtotal, 0).toFixed(2));
+    const shippingCost = Number(Number(shippingRate.price).toFixed(2));
+    const total = Number((subtotal + shippingCost).toFixed(2));
+
     let userId: string | null = null;
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (token) {
       const { data } = await supabase.auth.getUser(token);
       userId = data?.user?.id ?? null;
     }
 
-    // Recompute money server-side so the client cannot tamper with totals.
-    const cleanItems = items.map((it) => {
-      const unit = Number(it.unit_price) || 0;
-      const qty = Math.max(1, Math.floor(Number(it.quantity) || 0));
-      return {
-        product_id: it.product_id || null,
-        product_name: String(it.product_name || "").slice(0, 300),
-        product_image: it.product_image || null,
-        variant: it.variant || null,
-        unit_price: unit,
-        quantity: qty,
-        subtotal: Number((unit * qty).toFixed(2)),
-      };
-    });
+    const { data: order, error: orderError } = await supabase.from("orders").insert({
+      user_id: userId,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      customer_cpf: customerCpf,
+      shipping_cep: shippingCep,
+      ...address,
+      shipping_state: shippingState,
+      shipping_method: shippingRate.region_name,
+      shipping_cost: shippingCost,
+      subtotal,
+      total,
+      payment_method: "mercadopago",
+      payment_status: "pending",
+      notes: stringValue(orderInput.notes, 500) || null,
+    }).select().single();
+    if (orderError || !order) throw new Error(orderError?.message || "Failed to create order");
 
-    const subtotal = Number(
-      cleanItems.reduce((s, it) => s + it.subtotal, 0).toFixed(2),
-    );
-    const shippingCost = Math.max(0, Number(orderInput.shipping_cost) || 0);
-    const total = Number((subtotal + shippingCost).toFixed(2));
-
-    // Insert the order (service role → RLS bypassed safely).
-    const { data: order, error: oErr } = await supabase
-      .from("orders")
-      .insert({
-        user_id: userId,
-        customer_name: String(orderInput.customer_name || "").slice(0, 120),
-        customer_email: String(orderInput.customer_email || "").slice(0, 255),
-        customer_phone: String(orderInput.customer_phone || "").slice(0, 30),
-        customer_cpf: orderInput.customer_cpf || null,
-        shipping_cep: orderInput.shipping_cep || "",
-        shipping_street: orderInput.shipping_street || "",
-        shipping_number: orderInput.shipping_number || "",
-        shipping_complement: orderInput.shipping_complement || null,
-        shipping_district: orderInput.shipping_district || "",
-        shipping_city: orderInput.shipping_city || "",
-        shipping_state: orderInput.shipping_state || "",
-        shipping_method: orderInput.shipping_method || null,
-        shipping_cost: shippingCost,
-        subtotal,
-        total,
-        payment_method: "mercadopago",
-        payment_status: "pending",
-        notes: orderInput.notes || null,
-      })
-      .select()
-      .single();
-    if (oErr || !order) throw new Error(oErr?.message || "failed to create order");
-
-    // Insert the items.
-    const itemsRows = cleanItems.map((it) => ({ ...it, order_id: order.id }));
-    const { error: iErr } = await supabase.from("order_items").insert(itemsRows);
-    if (iErr) {
-      // Roll back the order so we don't leave an itemless order behind.
+    const { error: itemsError } = await supabase.from("order_items").insert(cleanItems.map((item) => ({ ...item, order_id: order.id })));
+    if (itemsError) {
       await supabase.from("orders").delete().eq("id", order.id);
-      throw new Error(iErr.message);
+      throw new Error(itemsError.message);
     }
 
-    const origin = req.headers.get("origin") || "https://art-print-commerce-hub.lovable.app";
+    await sendOrderStatusEmail(order);
 
-    const nameParts = (order.customer_name || "").trim().split(/\s+/);
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || firstName;
-
-    const mpItems = cleanItems.map((it) => ({
-      id: it.product_id || order.id,
-      title: it.variant ? `${it.product_name} - ${it.variant}` : it.product_name,
-      quantity: it.quantity,
-      unit_price: it.unit_price,
-      currency_id: "BRL",
-      picture_url: it.product_image || undefined,
-    }));
-
-    if (shippingCost > 0) {
-      mpItems.push({
-        id: "shipping",
-        title: `Frete - ${order.shipping_method || "Entrega"}`,
-        quantity: 1,
-        unit_price: shippingCost,
-        currency_id: "BRL",
-        picture_url: undefined,
-      });
-    }
-
+    const siteUrl = Deno.env.get("SITE_URL") || req.headers.get("origin") || "https://art-print-commerce-hub.lovable.app";
+    const nameParts = customerName.split(/\s+/);
     const preference = {
-      items: mpItems,
+      items: [
+        ...cleanItems.map((item) => ({ id: item.product_id, title: item.variant ? `${item.product_name} - ${item.variant}` : item.product_name, quantity: item.quantity, unit_price: item.unit_price, currency_id: "BRL", picture_url: item.product_image })),
+        ...(shippingCost > 0 ? [{ id: "shipping", title: `Frete - ${shippingRate.region_name}`, quantity: 1, unit_price: shippingCost, currency_id: "BRL" }] : []),
+      ],
       payer: {
-        name: firstName,
-        surname: lastName,
-        email: order.customer_email,
-        phone: { number: order.customer_phone || "" },
-        identification: order.customer_cpf
-          ? { type: "CPF", number: String(order.customer_cpf).replace(/\D/g, "") }
-          : undefined,
-        address: {
-          zip_code: (order.shipping_cep || "").replace(/\D/g, ""),
-          street_name: order.shipping_street || "",
-          street_number: order.shipping_number || "",
-        },
+        name: nameParts[0] || "",
+        surname: nameParts.slice(1).join(" ") || nameParts[0] || "",
+        email: customerEmail,
+        phone: { number: customerPhone },
+        identification: { type: "CPF", number: customerCpf },
+        address: { zip_code: shippingCep, street_name: address.shipping_street, street_number: address.shipping_number },
       },
       external_reference: order.id,
       notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook`,
-      back_urls: {
-        success: `${origin}/pedido-confirmado?order=${order.id}`,
-        pending: `${origin}/pedido-confirmado?order=${order.id}`,
-        failure: `${origin}/checkout?erro=pagamento`,
-      },
+      back_urls: { success: `${siteUrl}/pedido-confirmado?order=${order.id}`, pending: `${siteUrl}/pedido-confirmado?order=${order.id}`, failure: `${siteUrl}/checkout?erro=pagamento` },
       auto_return: "approved",
       statement_descriptor: "ART PERSONALIZADOS",
       metadata: { order_id: order.id, order_number: order.order_number },
     };
 
-    // The order is already persisted. If Mercado Pago fails from here on, we still
-    // return the order (200) so the client can show the "pedido registrado" fallback
-    // instead of a hard error and a lost order.
     try {
-      const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+      const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify(preference),
       });
-
-      const mpData = await mpRes.json();
-      if (!mpRes.ok) {
-        console.error("MP error:", mpData);
-        return json({
-          order_id: order.id,
-          order_number: order.order_number,
-          error: mpData.message || "Falha ao criar preferência",
-        });
+      const mpData = await mpResponse.json();
+      if (!mpResponse.ok) {
+        console.error("MP error", { status: mpResponse.status, orderNumber: order.order_number });
+        return json({ order_id: order.id, order_number: order.order_number, error: mpData.message || "Falha ao criar preferência" });
       }
 
-      await supabase
-        .from("orders")
-        .update({ mp_preference_id: mpData.id, payment_status: "pending" })
-        .eq("id", order.id);
-
-      return json({
-        order_id: order.id,
-        order_number: order.order_number,
-        preference_id: mpData.id,
-        init_point: mpData.init_point,
-        sandbox_init_point: mpData.sandbox_init_point,
-      });
-    } catch (mpErr: any) {
-      console.error("MP request failed:", mpErr);
-      return json({
-        order_id: order.id,
-        order_number: order.order_number,
-        error: mpErr?.message || "Falha ao contatar o Mercado Pago",
-      });
+      await supabase.from("orders").update({ mp_preference_id: mpData.id, payment_status: "pending" }).eq("id", order.id);
+      return json({ order_id: order.id, order_number: order.order_number, preference_id: mpData.id, init_point: mpData.init_point, sandbox_init_point: mpData.sandbox_init_point });
+    } catch (error: unknown) {
+      console.error("MP request failed", { orderNumber: order.order_number });
+      return json({ order_id: order.id, order_number: order.order_number, error: error instanceof Error ? error.message : "Falha ao contatar o Mercado Pago" });
     }
-  } catch (err: any) {
-    console.error(err);
-    return json({ error: err.message }, 500);
+  } catch (error: unknown) {
+    console.error("Create preference failed", error);
+    return json({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
   }
 });
