@@ -34,7 +34,6 @@ const Checkout = () => {
     shipping_district: "", shipping_city: "", shipping_state: "", notes: "",
   });
   const [shipping, setShipping] = useState<ShippingQuote | null>(null);
-  const [payment, setPayment] = useState("pix");
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
 
@@ -64,6 +63,17 @@ const Checkout = () => {
     if (!shipping) { toast.error("Calcule o frete (digite o CEP e saia do campo)."); return; }
     const parsed = checkoutSchema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
+    // Abra a guia ainda durante o gesto do usuário para evitar que o navegador
+    // bloqueie o popup depois da chamada assíncrona ao Mercado Pago.
+    const paymentTab = window.open("about:blank", "_blank");
+    if (!paymentTab) {
+      toast.error("Não foi possível abrir a guia de pagamento.", {
+        description: "Permita pop-ups para este site e tente novamente.",
+      });
+      return;
+    }
+
+    paymentTab.opener = null;
     setSubmitting(true);
     try {
       // O pedido é criado no servidor (edge function com service_role) para funcionar
@@ -112,8 +122,9 @@ const Checkout = () => {
 
       clear();
       toast.dismiss("mp");
-      window.location.href = mp.init_point;
+      paymentTab.location.replace(mp.init_point);
     } catch (err: any) {
+      paymentTab.close();
       toast.dismiss("mp");
       toast.error("Erro ao registrar pedido", { description: err.message });
     } finally { setSubmitting(false); }
@@ -175,7 +186,7 @@ const Checkout = () => {
               <p className="font-semibold">Você será redirecionado para o ambiente seguro do Mercado Pago para escolher:</p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
                 <li><strong>PIX</strong> — aprovação imediata</li>
-                <li><strong>Cartão de Crédito</strong> — em até 3x sem juros</li>
+                <li><strong>Cartão de Crédito</strong></li>
                 <li><strong>Boleto Bancário</strong></li>
               </ul>
               <p className="text-xs text-muted-foreground pt-2">Ao confirmar o pedido, o link de pagamento é gerado automaticamente. Seus dados de cartão não passam pelo nosso site.</p>
