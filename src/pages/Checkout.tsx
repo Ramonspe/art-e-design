@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, CreditCard, MapPin, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBRL, useCart } from "@/contexts/CartContext";
@@ -25,11 +25,10 @@ const checkoutSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 });
 
-type PendingPayment = { orderNumber: number; paymentUrl: string | null };
-
 const Checkout = () => {
   const { items, subtotal } = useCart();
   const { user } = useAuth();
+  const [params] = useSearchParams();
   const [form, setForm] = useState<Record<string, string>>({
     customer_name: "", customer_email: user?.email || "", customer_phone: "", customer_cpf: "",
     shipping_cep: "", shipping_street: "", shipping_number: "", shipping_complement: "",
@@ -38,11 +37,12 @@ const Checkout = () => {
   const [shipping, setShipping] = useState<ShippingQuote | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
 
   useEffect(() => {
     if (user?.email) setForm((current) => ({ ...current, customer_email: user.email! }));
   }, [user]);
+
+  const paymentWasNotCompleted = params.get("erro") === "pagamento";
 
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -88,13 +88,6 @@ const Checkout = () => {
       return;
     }
 
-    const paymentTab = window.open("about:blank", "_blank");
-    if (!paymentTab) {
-      toast.error("Não foi possível abrir a guia de pagamento.", { description: "Permita pop-ups para este site e tente novamente." });
-      return;
-    }
-
-    paymentTab.opener = null;
     setSubmitting(true);
     try {
       toast.loading("Criando seu protocolo de pagamento…", { id: "mp" });
@@ -124,20 +117,13 @@ const Checkout = () => {
 
       toast.dismiss("mp");
       if (paymentError || !payment?.init_point) {
-        paymentTab.close();
-        if (payment?.order_number) {
-          setPendingPayment({ orderNumber: payment.order_number, paymentUrl: null });
-          toast.error(`Protocolo #${payment.order_number} criado, mas o pagamento não foi iniciado.`, { description: "Nenhuma cobrança foi realizada. Tente novamente mais tarde ou fale conosco." });
-          return;
-        }
         throw new Error(paymentError?.message || payment?.error || "Não foi possível iniciar o pagamento.");
       }
 
-      setPendingPayment({ orderNumber: payment.order_number, paymentUrl: payment.init_point });
-      toast.success(`Protocolo #${payment.order_number} gerado.`, { description: "O carrinho será mantido até a confirmação do pagamento." });
-      paymentTab.location.replace(payment.init_point);
+      // O carrinho permanece salvo até a tela de confirmação receber a aprovação
+      // real do webhook do Mercado Pago.
+      window.location.assign(payment.init_point);
     } catch (error: unknown) {
-      paymentTab.close();
       toast.dismiss("mp");
       toast.error("Erro ao registrar pedido", { description: error instanceof Error ? error.message : "Tente novamente em alguns instantes." });
     } finally {
@@ -167,15 +153,10 @@ const Checkout = () => {
         </div>
       )}
 
-      {pendingPayment && (
-        <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
-          <p className="font-semibold">Protocolo #{pendingPayment.orderNumber} criado.</p>
-          <p className="mt-1 text-muted-foreground">
-            {pendingPayment.paymentUrl
-              ? "O pagamento foi aberto em outra guia. Seu carrinho será mantido até a aprovação; você receberá atualizações pelo e-mail informado."
-              : "O pedido está salvo, mas o link de pagamento não pôde ser aberto. Nenhuma cobrança foi feita."}
-          </p>
-          {pendingPayment.paymentUrl && <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => window.open(pendingPayment.paymentUrl!, "_blank", "noopener,noreferrer")}>Abrir pagamento novamente</Button>}
+      {paymentWasNotCompleted && (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <p className="font-semibold">Pagamento não concluído.</p>
+          <p className="mt-1 text-muted-foreground">Nenhuma cobrança foi confirmada e os produtos continuam no seu carrinho. Você pode tentar novamente quando quiser.</p>
         </div>
       )}
 
@@ -245,8 +226,8 @@ const Checkout = () => {
             <div className="flex justify-between"><span>Frete</span><span>{shipping ? formatBRL(shipping.price) : "—"}</span></div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border"><span>Total</span><span className="text-primary">{formatBRL(total)}</span></div>
           </div>
-          <Button type="submit" variant="cta" size="lg" className="w-full mt-6" disabled={submitting || Boolean(pendingPayment)}>
-            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Gerando pagamento..." : pendingPayment ? "Pagamento já iniciado" : "Pagar com Mercado Pago"}
+          <Button type="submit" variant="cta" size="lg" className="w-full mt-6" disabled={submitting}>
+            <CheckCircle2 className="h-5 w-5" /> {submitting ? "Redirecionando para o pagamento..." : "Pagar com Mercado Pago"}
           </Button>
           <p className="text-[11px] text-muted-foreground text-center mt-3">🔒 Ambiente seguro. Você será redirecionado.</p>
         </aside>

@@ -5,18 +5,18 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL, useCart } from "@/contexts/CartContext";
 import { openWhatsApp } from "@/data/contact";
+import { getPaymentFeedback } from "@/lib/order-payment";
 
-const statusInfo = (mpStatus?: string | null, orderStatus?: string) => {
-  const s = (mpStatus || orderStatus || "pending").toLowerCase();
-  if (["approved", "pago", "paid"].includes(s)) return { icon: CheckCircle2, color: "text-secondary", bg: "bg-secondary/10 border-secondary", title: "Pagamento aprovado!", desc: "Recebemos seu pagamento. Já estamos preparando seu pedido." };
-  if (["rejected", "cancelled", "failed", "cancelado"].includes(s)) return { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10 border-destructive", title: "Pagamento não concluído", desc: "Seu pagamento não foi aprovado. Você pode tentar novamente." };
+const statusInfo = (paymentStatus?: string | null, orderStatus?: string) => {
+  const feedback = getPaymentFeedback(paymentStatus, orderStatus);
+  if (feedback === "approved") return { icon: CheckCircle2, color: "text-secondary", bg: "bg-secondary/10 border-secondary", title: "Pagamento aprovado!", desc: "Recebemos seu pagamento. Já estamos preparando seu pedido." };
+  if (feedback === "rejected") return { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10 border-destructive", title: "Pagamento não concluído", desc: "Seu pagamento não foi aprovado. Você pode tentar novamente." };
   return { icon: Clock, color: "text-primary", bg: "bg-primary/10 border-primary", title: "Aguardando confirmação do pagamento", desc: "Se você pagou por PIX ou boleto, a confirmação chega em minutos. Você receberá um e-mail assim que aprovado." };
 };
 
 const OrderConfirmation = () => {
   const [params] = useSearchParams();
   const orderId = params.get("order");
-  const mpStatus = params.get("status");
   const { clear } = useCart();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,9 @@ const OrderConfirmation = () => {
     );
   }
 
-  const info = statusInfo(mpStatus || order.payment_status, order.status);
+  // A URL de retorno não é prova de pagamento. A confirmação exibida vem
+  // exclusivamente do pedido atualizado pelo webhook do Mercado Pago.
+  const info = statusInfo(order.payment_status, order.status);
   const Icon = info.icon;
 
   return (
