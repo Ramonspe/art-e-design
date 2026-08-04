@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import type { Product } from "@/data/catalog";
 
 export type CartItem = {
@@ -55,13 +55,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       i.productId === productId && i.variant === variant ? { ...i, quantity: Math.max(1, quantity) } : i
     ));
 
-  const clear = () => setItems([]);
+  const clear = useCallback(() => setItems([]), []);
 
   const value = useMemo<CartContextValue>(() => ({
     items, addItem, removeItem, updateQuantity, clear,
     count: items.reduce((s, i) => s + i.quantity, 0),
     subtotal: items.reduce((s, i) => s + i.price * i.quantity, 0),
-  }), [items]);
+  }), [items, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
