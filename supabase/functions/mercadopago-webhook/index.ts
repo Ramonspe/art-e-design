@@ -5,6 +5,7 @@
 // - Updates the corresponding order in the database based on the real payment status
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { sendOrderStatusEmail } from '../_shared/order-email.ts'
 
 const MP_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') ?? ''
 const MP_WEBHOOK_SECRET = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') ?? ''
@@ -160,6 +161,20 @@ Deno.serve(async (req) => {
   }
   if (paidAt) update.paid_at = paidAt
 
+  const { data: previousOrder, error: previousOrderError } = await supabase
+    .from('orders')
+    .select('id, customer_email, customer_name, order_number, status, payment_status, total')
+    .eq('id', externalRef)
+    .maybeSingle()
+
+  if (previousOrderError || !previousOrder) {
+    console.error('Order lookup failed', previousOrderError)
+    return new Response(JSON.stringify({ error: 'Order not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   const { error: updErr } = await supabase
     .from('orders')
     .update(update)
@@ -171,6 +186,12 @@ Deno.serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  }
+
+  const paymentWasApproved = mpStatus === 'approved' && previousOrder.payment_status !== 'approved'
+  const paymentWasCancelled = status === 'cancelado' && previousOrder.status !== status
+  if (paymentWasApproved || paymentWasCancelled) {
+    await sendOrderStatusEmail({ ...previousOrder, status })
   }
 
   return new Response(
