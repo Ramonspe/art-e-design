@@ -32,6 +32,6 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   } catch (error: unknown) {
     console.error("Delete cancelled order failed", error);
-    return json({ error: "Não foi possível excluir o pedido." }, 500);
+    return json({ error: error instanceof Error ? error.message : "Não foi possível excluir o pedido." }, 500);
   }
 });
