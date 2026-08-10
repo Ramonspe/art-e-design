@@ -175,7 +175,7 @@ export const AdminUsers = () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke<{ users: ManagedUser[] }>("admin-users", { body: { action: "list" } });
     setLoading(false);
-    if (error || !data?.users) { toast.error("Não foi possível carregar os usuários."); return; }
+    if (error || !data?.users) { toast.error(await getFunctionErrorMessage(error, "Não foi possível carregar os usuários.")); return; }
     setUsers(data.users);
   };
   useEffect(() => { void load(); }, []);
@@ -185,11 +185,11 @@ export const AdminUsers = () => {
     setUpdatingId(managedUser.id);
     const { error } = await supabase.functions.invoke("admin-users", { body: { action: "set_admin", user_id: managedUser.id, is_admin: !managedUser.is_admin } });
     setUpdatingId(null);
-    if (error) { toast.error("Não foi possível alterar o acesso do usuário."); return; }
+    if (error) { toast.error(await getFunctionErrorMessage(error, "Não foi possível alterar o acesso do usuário.")); return; }
     toast.success("Acesso atualizado.");
     void load();
   };
-  return <div className="rounded-xl border border-border bg-card overflow-hidden"><div className="p-5 border-b border-border"><h2 className="font-bold text-lg">Usuários cadastrados</h2><p className="text-sm text-muted-foreground mt-1">Somente e-mails confirmados devem receber comunicações sobre pedidos.</p></div>{loading ? <p className="p-5 text-muted-foreground">Carregando…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-xs uppercase"><tr><th className="p-3 text-left">Usuário</th><th className="p-3 text-left">E-mail</th><th className="p-3 text-left">Confirmação</th><th className="p-3 text-left">Consentimentos</th><th className="p-3 text-right">Acesso</th></tr></thead><tbody>{users.map((managedUser) => <tr key={managedUser.id} className="border-t border-border"><td className="p-3"><p className="font-medium">{managedUser.full_name || "Sem nome"}</p><p className="text-xs text-muted-foreground">{managedUser.phone || "Sem telefone"}</p></td><td className="p-3">{managedUser.email}</td><td className="p-3">{managedUser.email_confirmed_at ? <span className="text-green-700">Confirmado</span> : <span className="text-destructive">Pendente</span>}</td><td className="p-3 text-xs">Pedidos: {managedUser.order_updates_email_consent ? "sim" : "não"}<br />Promoções: {managedUser.marketing_email_consent ? "sim" : "não"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant={managedUser.is_admin ? "outline" : "gold"} disabled={updatingId === managedUser.id} onClick={() => void toggleAdmin(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_admin ? "Remover admin" : "Tornar admin"}</Button></td></tr>)}</tbody></table></div>}</div>;
+  return <div className="rounded-xl border border-border bg-card overflow-hidden"><div className="p-5 border-b border-border"><h2 className="font-bold text-lg">Usuários cadastrados</h2><p className="text-sm text-muted-foreground mt-1">Consulte os dados cadastrados e defina os acessos administrativos.</p></div>{loading ? <p className="p-5 text-muted-foreground">Carregando…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-xs uppercase"><tr><th className="p-3 text-left">Usuário</th><th className="p-3 text-left">E-mail</th><th className="p-3 text-left">Cadastro</th><th className="p-3 text-left">Consentimentos</th><th className="p-3 text-right">Acesso</th></tr></thead><tbody>{users.map((managedUser) => <tr key={managedUser.id} className="border-t border-border"><td className="p-3"><p className="font-medium">{managedUser.full_name || "Sem nome"}</p><p className="text-xs text-muted-foreground">{managedUser.phone || "Sem telefone"}</p></td><td className="p-3">{managedUser.email}</td><td className="p-3">{new Date(managedUser.created_at).toLocaleDateString("pt-BR")}</td><td className="p-3 text-xs">Pedidos: {managedUser.order_updates_email_consent ? "sim" : "não"}<br />Promoções: {managedUser.marketing_email_consent ? "sim" : "não"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant={managedUser.is_admin ? "outline" : "gold"} disabled={updatingId === managedUser.id} onClick={() => void toggleAdmin(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_admin ? "Remover admin" : "Tornar admin"}</Button></td></tr>)}</tbody></table></div>}</div>;
 };
 
 export const AdminProducts = () => {
