@@ -352,11 +352,11 @@ export type Database = {
           name: string
           old_price: number | null
           price: number
-          slug: string
           shipping_height_cm: number | null
           shipping_length_cm: number | null
           shipping_weight_kg: number | null
           shipping_width_cm: number | null
+          slug: string
           stock: number | null
           updated_at: string
           video_url: string | null
@@ -375,11 +375,11 @@ export type Database = {
           name: string
           old_price?: number | null
           price: number
-          slug: string
           shipping_height_cm?: number | null
           shipping_length_cm?: number | null
           shipping_weight_kg?: number | null
           shipping_width_cm?: number | null
+          slug: string
           stock?: number | null
           updated_at?: string
           video_url?: string | null
@@ -398,11 +398,11 @@ export type Database = {
           name?: string
           old_price?: number | null
           price?: number
-          slug?: string
           shipping_height_cm?: number | null
           shipping_length_cm?: number | null
           shipping_weight_kg?: number | null
           shipping_width_cm?: number | null
+          slug?: string
           stock?: number | null
           updated_at?: string
           video_url?: string | null
