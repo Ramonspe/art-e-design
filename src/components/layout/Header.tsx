@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ShoppingCart, Menu, X, User, Package } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, User, Package, LogOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ const nav = [
 
 const Header = () => {
   const { count } = useCart();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -102,6 +102,8 @@ const Header = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link to="/conta" onClick={() => setAccountOpen(false)}><User className="mr-2 h-4 w-4" />Minha conta</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link to="/meus-pedidos" onClick={() => setAccountOpen(false)}><Package className="mr-2 h-4 w-4" />Meus pedidos</Link></DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onSelect={() => void signOut()}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
