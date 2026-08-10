@@ -27,9 +27,6 @@ const Account = () => {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [emailChangeStarted, setEmailChangeStarted] = useState(false);
-  const [oldEmailCode, setOldEmailCode] = useState("");
-  const [newEmailCode, setNewEmailCode] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -80,22 +77,8 @@ const Account = () => {
     if (!user || !newEmail || newEmail === user.email) { toast.error("Informe um novo e-mail válido."); return; }
     const { error } = await supabase.auth.updateUser({ email: newEmail });
     if (error) { toast.error(error.message); return; }
-    setEmailChangeStarted(true);
-    toast.success("Enviamos códigos de confirmação para o e-mail atual e o novo e-mail.");
-  };
-
-  const confirmEmailChange = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!user) return;
-    const oldCode = oldEmailCode.replace(/\D/g, "");
-    const nextCode = newEmailCode.replace(/\D/g, "");
-    if (oldCode.length < 6 || nextCode.length < 6) { toast.error("Informe os dois códigos recebidos."); return; }
-    const oldResult = await supabase.auth.verifyOtp({ email: user.email ?? "", token: oldCode, type: "email_change" });
-    if (oldResult.error) { toast.error(oldResult.error.message || "O código do e-mail atual é inválido."); return; }
-    const nextResult = await supabase.auth.verifyOtp({ email: newEmail, token: nextCode, type: "email_change" });
-    if (nextResult.error) { toast.error(nextResult.error.message || "O código do novo e-mail é inválido."); return; }
-    setEmailChangeStarted(false); setOldEmailCode(""); setNewEmailCode("");
-    toast.success("Novo e-mail confirmado.");
+    setNewEmail("");
+    toast.success("E-mail atualizado com sucesso.");
   };
 
   return <div className="container py-10 max-w-5xl">
@@ -111,8 +94,7 @@ const Account = () => {
         <Button type="submit" variant="cta" disabled={saving}><Save className="h-4 w-4" /> {saving ? "Salvando..." : "Salvar dados"}</Button>
       </form>
       <div className="space-y-6"><form onSubmit={changePassword} className="rounded-xl border border-border bg-card p-6 space-y-3"><h2 className="flex items-center gap-2 text-xl font-bold"><KeyRound className="h-5 w-5 text-primary" /> Trocar senha</h2><Input label="Nova senha" type="password" value={password} onChange={setPassword} minLength={6} required /><Input label="Confirmar nova senha" type="password" value={passwordConfirmation} onChange={setPasswordConfirmation} minLength={6} required /><Button type="submit" variant="outline">Atualizar senha</Button></form>
-        <form onSubmit={startEmailChange} className="rounded-xl border border-border bg-card p-6 space-y-3"><h2 className="text-xl font-bold">Trocar e-mail</h2><p className="text-sm text-muted-foreground">Por segurança, a troca precisa ser confirmada no e-mail atual e no novo e-mail.</p><Input label="Novo e-mail" type="email" value={newEmail} onChange={setNewEmail} required /><Button type="submit" variant="outline">Enviar códigos</Button></form>
-        {emailChangeStarted && <form onSubmit={confirmEmailChange} className="rounded-xl border border-primary bg-primary/5 p-6 space-y-3"><h2 className="text-lg font-bold">Confirmar troca de e-mail</h2><Input label="Código enviado ao e-mail atual" inputMode="numeric" value={oldEmailCode} onChange={(value) => setOldEmailCode(value.replace(/\D/g, "").slice(0, 8))} required /><Input label="Código enviado ao novo e-mail" inputMode="numeric" value={newEmailCode} onChange={(value) => setNewEmailCode(value.replace(/\D/g, "").slice(0, 8))} required /><Button type="submit" variant="cta">Confirmar novo e-mail</Button></form>}
+        <form onSubmit={startEmailChange} className="rounded-xl border border-border bg-card p-6 space-y-3"><h2 className="text-xl font-bold">Trocar e-mail</h2><p className="text-sm text-muted-foreground">Informe o novo endereço que deseja usar na conta.</p><Input label="Novo e-mail" type="email" value={newEmail} onChange={setNewEmail} required /><Button type="submit" variant="outline">Atualizar e-mail</Button></form>
       </div>
     </div>
     <h2 className="text-xl font-bold mb-4">Meus pedidos</h2>{loading ? <p className="text-muted-foreground">Carregando…</p> : orders.length === 0 ? <div className="text-center py-16 rounded-xl border border-dashed border-border"><Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" /><p className="text-muted-foreground">Você ainda não fez nenhum pedido.</p><Button asChild variant="cta" className="mt-4"><Link to="/produtos">Comprar agora</Link></Button></div> : <div className="space-y-3">{orders.map((order) => <div key={order.id} className="rounded-xl border border-border bg-card p-5"><div className="flex items-center justify-between flex-wrap gap-3"><div><p className="font-bold">Pedido #{order.order_number}</p><p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString("pt-BR")} · {order.order_items.length} {order.order_items.length === 1 ? "item" : "itens"}</p></div><span className={`text-xs font-semibold px-3 py-1 rounded-full ${statusColor[order.status]}`}>{statusLabel[order.status]}</span><p className="font-bold text-primary">{formatBRL(Number(order.total))}</p></div><div className="mt-3 grid sm:grid-cols-3 gap-2 text-xs text-muted-foreground"><div>Pagamento: <strong className="text-foreground">{order.payment_method}</strong></div><div>Frete: <strong className="text-foreground">{order.shipping_method || "—"}</strong></div><div>Entrega: <strong className="text-foreground">{order.shipping_city}/{order.shipping_state}</strong></div>{order.superfrete_tracking_code && <div>Rastreio: <strong className="text-foreground">{order.superfrete_tracking_code}</strong></div>}</div></div>)}</div>}

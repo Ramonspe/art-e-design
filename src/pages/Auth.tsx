@@ -33,7 +33,7 @@ const Auth = () => {
       if (mode === "signup") {
         const p = signupSchema.safeParse(fd);
         if (!p.success) { toast.error(p.error.issues[0].message); return; }
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: p.data.email,
           password: p.data.password,
           options: {
@@ -46,10 +46,6 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        if (!data.session) {
-          nav(`/verificar-email?email=${encodeURIComponent(p.data.email)}&redirect=${encodeURIComponent(redirect)}`);
-          return;
-        }
         toast.success("Conta criada! Você já está logado.");
       } else {
         const p = loginSchema.safeParse(fd);
