@@ -36,7 +36,14 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email: p.data.email,
           password: p.data.password,
-          options: { emailRedirectTo: window.location.origin + redirect, data: { full_name: p.data.full_name } },
+          options: {
+            emailRedirectTo: window.location.origin + redirect,
+            data: {
+              full_name: p.data.full_name,
+              order_updates_email_consent: fd.order_updates_email_consent === "on",
+              marketing_email_consent: fd.marketing_email_consent === "on",
+            },
+          },
         });
         if (error) throw error;
         toast.success("Conta criada! Você já está logado.");
@@ -78,6 +85,10 @@ const Auth = () => {
           {mode === "signup" && <Input label="Nome completo" name="full_name" required />}
           <Input label="E-mail" name="email" type="email" required />
           <Input label="Senha" name="password" type="password" required minLength={6} />
+          {mode === "signup" && <div className="space-y-3 rounded-md border border-border p-3 text-sm">
+            <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" name="order_updates_email_consent" /> <span>Quero receber e-mails sobre o andamento dos meus pedidos.</span></label>
+            <label className="flex items-start gap-2"><input className="mt-1" type="checkbox" name="marketing_email_consent" /> <span>Quero receber promoções e novidades da Art &amp; Personalizados.</span></label>
+          </div>}
           <Button type="submit" variant="cta" size="lg" className="w-full mt-2" disabled={busy}>
             {busy ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
           </Button>
