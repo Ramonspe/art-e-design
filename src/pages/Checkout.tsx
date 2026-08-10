@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, CreditCard, MapPin, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBRL, useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { BRAZILIAN_STATES, cleanDigits, formatCep, formatCpf, formatPhone, isValidBrazilianPhone, isValidCpf } from "@/lib/checkout";
+import { BRAZILIAN_STATES, cleanDigits, formatCep, formatCpf, formatPhone, isValidBrazilianPhone, isValidCpf, replaceShippingAddressFromCep } from "@/lib/checkout";
 import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -38,6 +38,7 @@ const Checkout = () => {
   const [shippingOptions, setShippingOptions] = useState<ShippingQuote[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
+  const cepLookupId = useRef(0);
 
   useEffect(() => {
     if (user?.email) setForm((current) => ({ ...current, customer_email: user.email! }));
@@ -47,24 +48,28 @@ const Checkout = () => {
 
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
 
-  const onCepBlur = async () => {
-    const cep = cleanDigits(form.shipping_cep);
-    if (cep.length !== 8) return;
-
+  const lookupCep = async (cep: string, lookupId: number) => {
     setCepLoading(true);
     try {
-      const address = await fetchAddressByCep(cep);
-      setForm((current) => ({
-        ...current,
-        shipping_street: current.shipping_street || address.street,
-        shipping_district: current.shipping_district || address.district,
-        shipping_city: address.city,
-        shipping_state: address.state,
-      }));
-      const quotes = await quoteShipping(cep, items.map((item) => ({ productId: item.productId, quantity: item.quantity })));
-      if (quotes.length > 0) {
-        setShippingOptions(quotes);
-        setShipping(quotes[0]);
+      const addressRequest = fetchAddressByCep(cep);
+      const shippingRequest = quoteShipping(cep, items.map((item) => ({ productId: item.productId, quantity: item.quantity }))).then(
+        (quotes) => ({ quotes }),
+        (error: unknown) => ({ error }),
+      );
+      const address = await addressRequest;
+      if (lookupId !== cepLookupId.current) return;
+
+      setForm((current) => cleanDigits(current.shipping_cep) === cep
+        ? replaceShippingAddressFromCep(current, address)
+        : current);
+
+      const shippingResult = await shippingRequest;
+      if (lookupId !== cepLookupId.current) return;
+      if ("error" in shippingResult) throw shippingResult.error;
+
+      if (shippingResult.quotes.length > 0) {
+        setShippingOptions(shippingResult.quotes);
+        setShipping(shippingResult.quotes[0]);
         toast.success("Escolha uma modalidade de frete.");
       } else {
         setShipping(null);
@@ -72,9 +77,25 @@ const Checkout = () => {
         toast.error("Não atendemos esse CEP no momento.");
       }
     } catch (error: unknown) {
+      if (lookupId !== cepLookupId.current) return;
       toast.error(error instanceof Error ? error.message : "Não foi possível consultar o CEP.");
     } finally {
-      setCepLoading(false);
+      if (lookupId === cepLookupId.current) setCepLoading(false);
+    }
+  };
+
+  const onCepChange = (value: string) => {
+    const formattedCep = formatCep(value);
+    const cep = cleanDigits(formattedCep);
+    const lookupId = ++cepLookupId.current;
+
+    setForm((current) => ({ ...current, shipping_cep: formattedCep }));
+    setShipping(null);
+    setShippingOptions([]);
+    setCepLoading(false);
+
+    if (cep.length === 8) {
+      void lookupCep(cep, lookupId);
     }
   };
 
@@ -171,7 +192,7 @@ const Checkout = () => {
               <Field label="CPF" name="customer_cpf" autoComplete="off" inputMode="numeric" value={form.customer_cpf} onChange={(event) => set("customer_cpf", formatCpf(event.target.value))} required />
               <Field label="E-mail" name="customer_email" autoComplete="email" type="email" value={form.customer_email} onChange={(event) => set("customer_email", event.target.value)} required />
               <Field label="Telefone / WhatsApp" name="customer_phone" autoComplete="tel" inputMode="tel" value={form.customer_phone} onChange={(event) => set("customer_phone", formatPhone(event.target.value))} required />
-              <Field label={cepLoading ? "CEP (buscando…)" : "CEP"} name="shipping_cep" autoComplete="postal-code" inputMode="numeric" value={form.shipping_cep} onChange={(event) => { set("shipping_cep", formatCep(event.target.value)); setShipping(null); setShippingOptions([]); }} onBlur={onCepBlur} required />
+              <Field label={cepLoading ? "CEP (buscando…)" : "CEP"} name="shipping_cep" autoComplete="postal-code" inputMode="numeric" value={form.shipping_cep} onChange={(event) => onCepChange(event.target.value)} required />
               <div />
               <Field label="Endereço" name="shipping_street" autoComplete="address-line1" value={form.shipping_street} onChange={(event) => set("shipping_street", event.target.value)} wrapperClass="sm:col-span-2" required />
               <Field label="Número" name="shipping_number" autoComplete="address-line2" value={form.shipping_number} onChange={(event) => set("shipping_number", event.target.value)} required />
