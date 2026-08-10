@@ -79,7 +79,8 @@ separadamente no perfil. O checkout de um usuário autenticado atualiza os dados
 do perfil e o endereço padrão para reutilização em compras futuras.
 
 O menu do perfil separa **Minha conta** (`/conta`) de **Meus pedidos**
-(`/meus-pedidos`). No painel administrativo, apenas pedidos com status
+(`/meus-pedidos`), abrindo ao passar o mouse no desktop e ao tocar no ícone
+em dispositivos móveis. No painel administrativo, apenas pedidos com status
 `cancelado` podem ser excluídos, pela Edge Function `delete-cancelled-order`.
 Ao publicar uma alteração dessa função, publique também as Edge Functions no
 Lovable Cloud; o deploy do frontend no Cloudflare Pages não publica funções.
