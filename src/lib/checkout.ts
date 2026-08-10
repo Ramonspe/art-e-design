@@ -43,4 +43,17 @@ export const isValidBrazilianPhone = (value: string) => {
   return /^(?:[1-9]\d)(?:9\d{8}|[2-9]\d{7})$/.test(phone);
 };
 
+export const replaceShippingAddressFromCep = (
+  form: Record<string, string>,
+  address: { street: string; district: string; city: string; state: string },
+) => ({
+  ...form,
+  shipping_street: address.street,
+  shipping_number: "",
+  shipping_complement: "",
+  shipping_district: address.district,
+  shipping_city: address.city,
+  shipping_state: address.state,
+});
+
 export const cleanDigits = digitsOnly;
