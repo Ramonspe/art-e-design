@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingCart, Menu, X, User, Package } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,20 @@ const Header = () => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   useEffect(() => { setQ(params.get("q") || ""); }, [params]);
+  useEffect(() => () => { if (accountCloseTimeout.current) clearTimeout(accountCloseTimeout.current); }, []);
+  const openAccountMenu = () => {
+    if (accountCloseTimeout.current) clearTimeout(accountCloseTimeout.current);
+    setAccountOpen(true);
+  };
+  const scheduleAccountMenuClose = () => {
+    if (accountCloseTimeout.current) clearTimeout(accountCloseTimeout.current);
+    accountCloseTimeout.current = setTimeout(() => setAccountOpen(false), 160);
+  };
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const term = q.trim();
@@ -82,12 +92,12 @@ const Header = () => {
 
         <div className="flex items-center gap-2 ml-auto lg:ml-0">
           {user ? (
-            <div onMouseEnter={() => setAccountOpen(true)} onMouseLeave={() => setAccountOpen(false)}>
+            <div onMouseEnter={openAccountMenu} onMouseLeave={scheduleAccountMenuClose}>
               <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Abrir menu da conta"><User className="h-5 w-5" /></Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" sideOffset={0} onMouseEnter={openAccountMenu} onMouseLeave={scheduleAccountMenuClose} className="w-48">
                   <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link to="/conta" onClick={() => setAccountOpen(false)}><User className="mr-2 h-4 w-4" />Minha conta</Link></DropdownMenuItem>
