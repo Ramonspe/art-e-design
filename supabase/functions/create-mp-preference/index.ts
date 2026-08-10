@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendOrderStatusEmail } from "../_shared/order-email.ts";
+import { calculateSuperfrete } from "../_shared/superfrete.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,9 +14,18 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 type IncomingItem = { product_id?: string | null; variant?: string | null; quantity?: number };
-type ProductRow = { id: string; name: string; price: number; image: string; stock: number | null };
+type ProductRow = {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  stock: number | null;
+  shipping_weight_kg: number | null;
+  shipping_height_cm: number | null;
+  shipping_width_cm: number | null;
+  shipping_length_cm: number | null;
+};
 type VariantRow = { product_id: string; options: string[] };
-type ShippingRate = { id: string; region_name: string; price: number; delivery_days_min: number; delivery_days_max: number };
 
 const STATES = new Set(["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]);
 const digitsOnly = (value: unknown) => String(value ?? "").replace(/\D/g, "");
@@ -52,22 +62,24 @@ Deno.serve(async (req) => {
     const payload = await req.json().catch(() => null);
     const orderInput = payload?.order;
     const incomingItems: IncomingItem[] = Array.isArray(payload?.items) ? payload.items : [];
+    const selectedServiceId = Number(payload?.shipping_service_id);
     if (!orderInput || incomingItems.length === 0) return json({ error: "order and items are required" }, 400);
+    if (!Number.isInteger(selectedServiceId) || selectedServiceId < 1) return json({ error: "A modalidade de frete é obrigatória" }, 400);
 
-    const customerName = stringValue(orderInput.customer_name, 120);
+    const customerName = stringValue(orderInput.customer_name, 50);
     const customerEmail = stringValue(orderInput.customer_email, 255).toLowerCase();
     const customerPhone = stringValue(orderInput.customer_phone, 30);
     const customerCpf = digitsOnly(orderInput.customer_cpf);
     const shippingCep = digitsOnly(orderInput.shipping_cep);
     const shippingState = stringValue(orderInput.shipping_state, 2).toUpperCase();
     const address = {
-      shipping_street: stringValue(orderInput.shipping_street, 200),
-      shipping_number: stringValue(orderInput.shipping_number, 20),
-      shipping_complement: stringValue(orderInput.shipping_complement, 120) || null,
-      shipping_district: stringValue(orderInput.shipping_district, 120),
-      shipping_city: stringValue(orderInput.shipping_city, 120),
+      shipping_street: stringValue(orderInput.shipping_street, 50),
+      shipping_number: stringValue(orderInput.shipping_number, 10),
+      shipping_complement: stringValue(orderInput.shipping_complement, 20) || null,
+      shipping_district: stringValue(orderInput.shipping_district, 60),
+      shipping_city: stringValue(orderInput.shipping_city, 50),
     };
-    if (customerName.length < 2 || !/^\S+@\S+\.\S+$/.test(customerEmail) || !isValidBrazilianPhone(customerPhone) || !isValidCpf(customerCpf) || shippingCep.length !== 8 || !STATES.has(shippingState) || Object.values(address).some((value) => value !== null && value.length === 0)) {
+    if (customerName.split(/\s+/).length < 2 || !/^\S+@\S+\.\S+$/.test(customerEmail) || !isValidBrazilianPhone(customerPhone) || !isValidCpf(customerCpf) || shippingCep.length !== 8 || !STATES.has(shippingState) || Object.values(address).some((value) => value !== null && value.length === 0)) {
       return json({ error: "Invalid checkout data" }, 400);
     }
 
@@ -84,15 +96,12 @@ Deno.serve(async (req) => {
     if ([...requested.values()].some((item) => item.quantity > 100)) return json({ error: "Invalid item quantity" }, 400);
 
     const productIds = [...new Set([...requested.values()].map((item) => item.productId))];
-    const [{ data: products, error: productsError }, { data: variants, error: variantsError }, { data: rates, error: ratesError }] = await Promise.all([
-      supabase.from("products").select("id,name,price,image,stock").in("id", productIds).eq("active", true),
+    const [{ data: products, error: productsError }, { data: variants, error: variantsError }] = await Promise.all([
+      supabase.from("products").select("id,name,price,image,stock,shipping_weight_kg,shipping_height_cm,shipping_width_cm,shipping_length_cm").in("id", productIds).eq("active", true),
       supabase.from("product_variants").select("product_id,options").in("product_id", productIds),
-      supabase.from("shipping_rates").select("id,region_name,price,delivery_days_min,delivery_days_max").eq("active", true).lte("cep_start", shippingCep).gte("cep_end", shippingCep).limit(1),
     ]);
-    if (productsError || variantsError || ratesError) throw new Error(productsError?.message || variantsError?.message || ratesError?.message || "Failed to validate checkout");
+    if (productsError || variantsError) throw new Error(productsError?.message || variantsError?.message || "Failed to validate checkout");
     if (!products || products.length !== productIds.length) return json({ error: "One or more products are unavailable" }, 409);
-    const shippingRate = rates?.[0] as ShippingRate | undefined;
-    if (!shippingRate) return json({ error: "Shipping is unavailable for this CEP" }, 422);
 
     const productById = new Map((products as ProductRow[]).map((product) => [product.id, product]));
     const variantsByProduct = new Map<string, string[]>();
@@ -116,7 +125,14 @@ Deno.serve(async (req) => {
       };
     });
     const subtotal = Number(cleanItems.reduce((total, item) => total + item.subtotal, 0).toFixed(2));
-    const shippingCost = Number(Number(shippingRate.price).toFixed(2));
+    const superfreteProducts = [...requested.values()].map((item) => {
+      const product = productById.get(item.productId)!;
+      return { ...product, quantity: item.quantity };
+    });
+    const superfreteQuotes = await calculateSuperfrete(superfreteProducts, shippingCep);
+    const selectedShipping = superfreteQuotes.find((quote) => quote.serviceId === selectedServiceId);
+    if (!selectedShipping) return json({ error: "A modalidade escolhida não está mais disponível. Calcule o frete novamente." }, 422);
+    const shippingCost = selectedShipping.price;
     const total = Number((subtotal + shippingCost).toFixed(2));
 
     let userId: string | null = null;
@@ -135,8 +151,12 @@ Deno.serve(async (req) => {
       shipping_cep: shippingCep,
       ...address,
       shipping_state: shippingState,
-      shipping_method: shippingRate.region_name,
+      shipping_method: selectedShipping.serviceName,
       shipping_cost: shippingCost,
+      superfrete_service_id: selectedShipping.serviceId,
+      superfrete_delivery_min: selectedShipping.deliveryMin,
+      superfrete_delivery_max: selectedShipping.deliveryMax,
+      superfrete_volume: selectedShipping.volume,
       subtotal,
       total,
       payment_method: "mercadopago",
@@ -158,7 +178,7 @@ Deno.serve(async (req) => {
     const preference = {
       items: [
         ...cleanItems.map((item) => ({ id: item.product_id, title: item.variant ? `${item.product_name} - ${item.variant}` : item.product_name, quantity: item.quantity, unit_price: item.unit_price, currency_id: "BRL", picture_url: item.product_image })),
-        ...(shippingCost > 0 ? [{ id: "shipping", title: `Frete - ${shippingRate.region_name}`, quantity: 1, unit_price: shippingCost, currency_id: "BRL" }] : []),
+        ...(shippingCost > 0 ? [{ id: "shipping", title: `Frete - ${selectedShipping.serviceName}`, quantity: 1, unit_price: shippingCost, currency_id: "BRL" }] : []),
       ],
       payer: {
         name: nameParts[0] || "",

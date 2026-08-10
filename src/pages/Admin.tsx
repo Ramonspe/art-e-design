@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Tag, Truck, ShoppingBag, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { LayoutDashboard, Package, Tag, ShoppingBag, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/contexts/CartContext";
@@ -13,7 +13,6 @@ const links = [
   { to: "/admin/produtos", label: "Produtos", icon: Package },
   { to: "/admin/categorias", label: "Categorias", icon: Tag },
   { to: "/admin/carrossel", label: "Carrossel", icon: ImageIcon },
-  { to: "/admin/frete", label: "Frete", icon: Truck },
 ];
 
 export const AdminLayout = () => (
@@ -113,6 +112,9 @@ export const AdminOrders = () => {
                 <div className="sm:col-span-2"><strong>Entrega:</strong> {o.shipping_street}, {o.shipping_number} {o.shipping_complement} - {o.shipping_district}, {o.shipping_city}/{o.shipping_state} - CEP {o.shipping_cep}</div>
                 <div><strong>Frete:</strong> {o.shipping_method} ({formatBRL(Number(o.shipping_cost))})</div>
                 <div><strong>Pagamento:</strong> {o.payment_method}</div>
+                {o.superfrete_status && <div><strong>Etiqueta SuperFrete:</strong> {o.superfrete_status}</div>}
+                {o.superfrete_tracking_code && <div><strong>Rastreio:</strong> {o.superfrete_tracking_code}</div>}
+                {o.superfrete_label_url && <div className="sm:col-span-2"><a href={o.superfrete_label_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Abrir etiqueta da SuperFrete</a></div>}
                 {o.notes && <div className="sm:col-span-2"><strong>Obs:</strong> {o.notes}</div>}
               </div>
               <div className="border-t border-border pt-3 mt-2">
@@ -157,6 +159,10 @@ export const AdminProducts = () => {
       image: images[0], gallery: images.slice(1),
       video_url: fd.video_url ? String(fd.video_url).trim() : null,
       category_id: fd.category_id || null,
+      shipping_weight_kg: Number(fd.shipping_weight_kg),
+      shipping_height_cm: Number(fd.shipping_height_cm),
+      shipping_width_cm: Number(fd.shipping_width_cm),
+      shipping_length_cm: Number(fd.shipping_length_cm),
       badge: fd.badge || null, is_template: fd.is_template === "on",
       featured: fd.featured === "on", active: fd.active === "on",
     };
@@ -194,6 +200,10 @@ export const AdminProducts = () => {
           <Input label="Slug" name="slug" defaultValue={editing.slug} required />
           <Input label="Preço" name="price" type="number" step="0.01" defaultValue={editing.price} required />
           <Input label="Preço antigo (opcional)" name="old_price" type="number" step="0.01" defaultValue={editing.old_price ?? ""} />
+          <Input label="Peso para envio (kg)" name="shipping_weight_kg" type="number" min="0.001" step="0.001" defaultValue={editing.shipping_weight_kg ?? ""} required />
+          <Input label="Altura da embalagem (cm)" name="shipping_height_cm" type="number" min="0.01" step="0.01" defaultValue={editing.shipping_height_cm ?? ""} required />
+          <Input label="Largura da embalagem (cm)" name="shipping_width_cm" type="number" min="0.01" step="0.01" defaultValue={editing.shipping_width_cm ?? ""} required />
+          <Input label="Comprimento da embalagem (cm)" name="shipping_length_cm" type="number" min="0.01" step="0.01" defaultValue={editing.shipping_length_cm ?? ""} required />
           <div className="sm:col-span-2"><label className="text-xs font-medium">Descrição</label>
             <textarea name="description" rows={3} defaultValue={editing.description} required className="w-full rounded-md border border-input bg-background p-2 text-sm" /></div>
           <div><label className="text-xs font-medium">Categoria</label>

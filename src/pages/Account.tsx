@@ -64,6 +64,7 @@ const Account = () => {
                 <div>Pagamento: <strong className="text-foreground">{o.payment_method}</strong></div>
                 <div>Frete: <strong className="text-foreground">{o.shipping_method || "—"}</strong></div>
                 <div>Entrega: <strong className="text-foreground">{o.shipping_city}/{o.shipping_state}</strong></div>
+                {o.superfrete_tracking_code && <div>Rastreio: <strong className="text-foreground">{o.superfrete_tracking_code}</strong></div>}
               </div>
             </div>
           ))}

@@ -16,7 +16,7 @@ import Personalizado from "./pages/Personalizado";
 import Contato from "./pages/Contato";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
-import { AdminLayout, AdminDashboard, AdminOrders, AdminProducts, AdminCategories, AdminShipping, AdminSlides } from "./pages/Admin";
+import { AdminLayout, AdminDashboard, AdminOrders, AdminProducts, AdminCategories, AdminSlides } from "./pages/Admin";
 import { RequireAuth, RequireAdmin } from "./components/RequireAuth";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound.tsx";
@@ -50,7 +50,6 @@ const App = () => (
                   <Route path="produtos" element={<AdminProducts />} />
                   <Route path="categorias" element={<AdminCategories />} />
                   <Route path="carrossel" element={<AdminSlides />} />
-                  <Route path="frete" element={<AdminShipping />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
