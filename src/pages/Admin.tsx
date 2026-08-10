@@ -77,6 +77,16 @@ export const AdminDashboard = () => {
 
 const STATUS = ["pendente", "confirmado", "em_producao", "enviado", "entregue", "cancelado"] as const;
 
+const getFunctionErrorMessage = async (error: unknown, fallback: string) => {
+  if (typeof error !== "object" || error === null || !("context" in error)) return fallback;
+  const context = error.context;
+  if (!(context instanceof Response)) return fallback;
+  const body: unknown = await context.clone().json().catch(() => null);
+  if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") return body.error;
+  if (context.status === 404) return "A função de exclusão ainda não foi publicada no Cloud.";
+  return fallback;
+};
+
 export const AdminOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [open, setOpen] = useState<string | null>(null);
@@ -94,7 +104,7 @@ export const AdminOrders = () => {
   const remove = async (id: string, orderNumber: number) => {
     if (!window.confirm(`Excluir permanentemente o pedido #${orderNumber}? Esta ação não pode ser desfeita.`)) return;
     const { error } = await supabase.functions.invoke("delete-cancelled-order", { body: { order_id: id } });
-    if (error) { toast.error("Não foi possível excluir o pedido. Confirme se ele continua cancelado."); return; }
+    if (error) { toast.error(await getFunctionErrorMessage(error, "Não foi possível excluir o pedido. Confirme se ele continua cancelado.")); return; }
     toast.success("Pedido cancelado excluído.");
     setOpen(null);
     load();

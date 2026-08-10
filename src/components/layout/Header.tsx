@@ -1,9 +1,10 @@
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ShoppingCart, Menu, X, User } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, User, Package } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CONTACT } from "@/data/contact";
 import logo from "@/assets/logo.png";
 
@@ -18,6 +19,7 @@ const Header = () => {
   const { count } = useCart();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
@@ -79,9 +81,21 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-2 ml-auto lg:ml-0">
-          <Link to={user ? "/conta" : "/auth"} aria-label="Minha conta">
-            <Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button>
-          </Link>
+          {user ? (
+            <div onMouseEnter={() => setAccountOpen(true)} onMouseLeave={() => setAccountOpen(false)}>
+              <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Abrir menu da conta"><User className="h-5 w-5" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild><Link to="/conta" onClick={() => setAccountOpen(false)}><User className="mr-2 h-4 w-4" />Minha conta</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link to="/meus-pedidos" onClick={() => setAccountOpen(false)}><Package className="mr-2 h-4 w-4" />Meus pedidos</Link></DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : <Link to="/auth" aria-label="Minha conta"><Button variant="ghost" size="icon"><User className="h-5 w-5" /></Button></Link>}
           <Link to="/carrinho" aria-label="Carrinho" className="relative">
             <Button variant="ghost" size="icon"><ShoppingCart className="h-5 w-5" /></Button>
             {count > 0 && (
