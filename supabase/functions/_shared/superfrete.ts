@@ -96,9 +96,12 @@ async function request(path: string, body?: unknown) {
 function volumeFrom(value: unknown): SuperfreteVolume | null {
   if (!value || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
-  const height = asPositiveNumber(input.height);
-  const width = asPositiveNumber(input.width);
-  const length = asPositiveNumber(input.length);
+  const dimensions = input.dimensions && typeof input.dimensions === "object"
+    ? input.dimensions as Record<string, unknown>
+    : input;
+  const height = asPositiveNumber(dimensions.height);
+  const width = asPositiveNumber(dimensions.width);
+  const length = asPositiveNumber(dimensions.length);
   const weight = asPositiveNumber(input.weight);
   return height && width && length && weight ? { height, width, length, weight } : null;
 }
@@ -109,7 +112,7 @@ function getPackages(input: Record<string, unknown>) {
   return [input.package, input.volume];
 }
 
-function parseQuotes(response: unknown): SuperfreteQuote[] {
+export function parseQuotes(response: unknown): SuperfreteQuote[] {
   const list = Array.isArray(response)
     ? response
     : response && typeof response === "object" && Array.isArray((response as Record<string, unknown>).data)
