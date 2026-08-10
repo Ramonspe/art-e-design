@@ -421,8 +421,6 @@ export type Database = {
         Row: {
           cpf: string | null
           created_at: string
-          marketing_email_consent: boolean
-          order_updates_email_consent: boolean
           full_name: string | null
           id: string
           phone: string | null
@@ -431,8 +429,6 @@ export type Database = {
         Insert: {
           cpf?: string | null
           created_at?: string
-          marketing_email_consent?: boolean
-          order_updates_email_consent?: boolean
           full_name?: string | null
           id: string
           phone?: string | null
@@ -441,8 +437,6 @@ export type Database = {
         Update: {
           cpf?: string | null
           created_at?: string
-          marketing_email_consent?: boolean
-          order_updates_email_consent?: boolean
           full_name?: string | null
           id?: string
           phone?: string | null
