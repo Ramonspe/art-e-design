@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Tag, ShoppingBag, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { LayoutDashboard, Package, Tag, ShoppingBag, ArrowLeft, Image as ImageIcon, Trash2, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/contexts/CartContext";
@@ -13,6 +13,7 @@ const links = [
   { to: "/admin/produtos", label: "Produtos", icon: Package },
   { to: "/admin/categorias", label: "Categorias", icon: Tag },
   { to: "/admin/carrossel", label: "Carrossel", icon: ImageIcon },
+  { to: "/admin/usuarios", label: "Usuários", icon: Users },
 ];
 
 export const AdminLayout = () => (
@@ -47,10 +48,11 @@ export const AdminDashboard = () => {
         supabase.from("products").select("id", { count: "exact", head: true }),
       ]);
       const orders = o.data || [];
+      const countedOrders = orders.filter((order) => order.status !== "cancelado");
       setStats({
-        orders: orders.length,
-        revenue: orders.reduce((s, x: any) => s + Number(x.total || 0), 0),
-        pending: orders.filter((x: any) => x.status === "pendente").length,
+        orders: countedOrders.length,
+        revenue: countedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+        pending: countedOrders.filter((order) => order.status === "pendente").length,
         products: p.count || 0,
       });
     })();
@@ -89,21 +91,30 @@ export const AdminOrders = () => {
     toast.success("Status atualizado. O cliente será notificado por e-mail.");
     load();
   };
+  const remove = async (id: string, orderNumber: number) => {
+    if (!window.confirm(`Excluir permanentemente o pedido #${orderNumber}? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.functions.invoke("delete-cancelled-order", { body: { order_id: id } });
+    if (error) { toast.error("Não foi possível excluir o pedido. Confirme se ele continua cancelado."); return; }
+    toast.success("Pedido cancelado excluído.");
+    setOpen(null);
+    load();
+  };
   return (
     <div className="space-y-3">
       {orders.length === 0 && <p className="text-muted-foreground text-center py-10">Nenhum pedido ainda.</p>}
       {orders.map((o) => (
         <div key={o.id} className="rounded-xl border border-border bg-card">
-          <button onClick={() => setOpen(open === o.id ? null : o.id)} className="w-full p-5 flex items-center justify-between flex-wrap gap-3 text-left hover:bg-muted/30">
-            <div>
+          <div className="w-full p-5 flex items-center justify-between flex-wrap gap-3">
+            <button type="button" onClick={() => setOpen(open === o.id ? null : o.id)} className="text-left hover:underline">
               <p className="font-bold">Pedido #{o.order_number} — {o.customer_name}</p>
               <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
-            </div>
-            <select value={o.status} onClick={(e) => e.stopPropagation()} onChange={(e) => update(o.id, e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+            </button>
+            <select aria-label={`Status do pedido #${o.order_number}`} value={o.status} onChange={(e) => update(o.id, e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
               {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+            <button type="button" aria-label={`Excluir pedido #${o.order_number}`} title={o.status === "cancelado" ? "Excluir pedido cancelado" : "Disponível apenas para pedidos cancelados"} disabled={o.status !== "cancelado"} onClick={(event) => { event.stopPropagation(); void remove(o.id, o.order_number); }} className="rounded-md p-2 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"><Trash2 className="h-4 w-4" /></button>
             <p className="font-bold text-primary">{formatBRL(Number(o.total))}</p>
-          </button>
+          </div>
           {open === o.id && (
             <div className="border-t border-border p-5 text-sm space-y-2">
               <div className="grid sm:grid-cols-2 gap-2">
@@ -132,6 +143,43 @@ export const AdminOrders = () => {
       ))}
     </div>
   );
+};
+
+type ManagedUser = {
+  id: string;
+  email: string;
+  email_confirmed_at: string | null;
+  created_at: string;
+  full_name: string;
+  phone: string;
+  order_updates_email_consent: boolean;
+  marketing_email_consent: boolean;
+  is_admin: boolean;
+};
+
+export const AdminUsers = () => {
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke<{ users: ManagedUser[] }>("admin-users", { body: { action: "list" } });
+    setLoading(false);
+    if (error || !data?.users) { toast.error("Não foi possível carregar os usuários."); return; }
+    setUsers(data.users);
+  };
+  useEffect(() => { void load(); }, []);
+  const toggleAdmin = async (managedUser: ManagedUser) => {
+    const actionLabel = managedUser.is_admin ? "remover o acesso administrativo de" : "tornar administrador";
+    if (!window.confirm(`Deseja ${actionLabel} ${managedUser.email}?`)) return;
+    setUpdatingId(managedUser.id);
+    const { error } = await supabase.functions.invoke("admin-users", { body: { action: "set_admin", user_id: managedUser.id, is_admin: !managedUser.is_admin } });
+    setUpdatingId(null);
+    if (error) { toast.error("Não foi possível alterar o acesso do usuário."); return; }
+    toast.success("Acesso atualizado.");
+    void load();
+  };
+  return <div className="rounded-xl border border-border bg-card overflow-hidden"><div className="p-5 border-b border-border"><h2 className="font-bold text-lg">Usuários cadastrados</h2><p className="text-sm text-muted-foreground mt-1">Somente e-mails confirmados devem receber comunicações sobre pedidos.</p></div>{loading ? <p className="p-5 text-muted-foreground">Carregando…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-xs uppercase"><tr><th className="p-3 text-left">Usuário</th><th className="p-3 text-left">E-mail</th><th className="p-3 text-left">Confirmação</th><th className="p-3 text-left">Consentimentos</th><th className="p-3 text-right">Acesso</th></tr></thead><tbody>{users.map((managedUser) => <tr key={managedUser.id} className="border-t border-border"><td className="p-3"><p className="font-medium">{managedUser.full_name || "Sem nome"}</p><p className="text-xs text-muted-foreground">{managedUser.phone || "Sem telefone"}</p></td><td className="p-3">{managedUser.email}</td><td className="p-3">{managedUser.email_confirmed_at ? <span className="text-green-700">Confirmado</span> : <span className="text-destructive">Pendente</span>}</td><td className="p-3 text-xs">Pedidos: {managedUser.order_updates_email_consent ? "sim" : "não"}<br />Promoções: {managedUser.marketing_email_consent ? "sim" : "não"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant={managedUser.is_admin ? "outline" : "gold"} disabled={updatingId === managedUser.id} onClick={() => void toggleAdmin(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_admin ? "Remover admin" : "Tornar admin"}</Button></td></tr>)}</tbody></table></div>}</div>;
 };
 
 export const AdminProducts = () => {

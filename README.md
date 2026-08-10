@@ -72,6 +72,18 @@ As Edge Functions usam variáveis configuradas no Supabase/Lovable Cloud, não n
 
 Nunca registre valores reais dessas variáveis no Git.
 
+## Confirmação de e-mail e conta do cliente
+
+No Lovable Cloud, abra **Cloud → Emails** e habilite a confirmação de e-mail.
+Nos modelos **Confirm signup** e **Change email address**, inclua a variável
+`{{ .Token }}` para que a loja envie o código informado nas telas de cadastro e
+troca de e-mail. Mantenha a confirmação segura de troca de e-mail habilitada:
+ela exige a confirmação no endereço atual e no novo endereço.
+
+Os consentimentos para atualizações de pedidos e para promoções são registrados
+separadamente no perfil. O checkout de um usuário autenticado atualiza os dados
+do perfil e o endereço padrão para reutilização em compras futuras.
+
 ## Frete pela SuperFrete
 
 O frete é cotado no checkout pela Edge Function `quote-superfrete`. O navegador
