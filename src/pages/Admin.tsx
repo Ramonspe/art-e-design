@@ -88,7 +88,7 @@ export const AdminOrders = () => {
       toast.error("Não foi possível atualizar o pedido.");
       return;
     }
-    toast.success("Status atualizado. O cliente será notificado por e-mail.");
+    toast.success("Status atualizado.");
     load();
   };
   const remove = async (id: string, orderNumber: number) => {
