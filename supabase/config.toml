@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.update-order-status]
 verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.delete-cancelled-order]
+verify_jwt = false

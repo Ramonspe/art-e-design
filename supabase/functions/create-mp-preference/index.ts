@@ -171,7 +171,12 @@ Deno.serve(async (req) => {
       throw new Error(itemsError.message);
     }
 
-    await sendOrderStatusEmail(order);
+    if (!userId) {
+      await sendOrderStatusEmail(order);
+    } else {
+      const { data: profile } = await supabase.from("profiles").select("order_updates_email_consent").eq("id", userId).maybeSingle();
+      if (profile?.order_updates_email_consent) await sendOrderStatusEmail(order);
+    }
 
     const siteUrl = Deno.env.get("SITE_URL") || req.headers.get("origin") || "https://art-print-commerce-hub.lovable.app";
     const nameParts = customerName.split(/\s+/);

@@ -26,14 +26,19 @@ Deno.serve(async (req) => {
     const { order_id: orderId, status } = await req.json().catch(() => ({}));
     if (typeof orderId !== "string" || !statuses.has(status)) return json({ error: "Invalid order status" }, 400);
 
-    const { data: order, error: orderError } = await supabase.from("orders").select("id,customer_email,customer_name,order_number,status,total").eq("id", orderId).maybeSingle();
+    const { data: order, error: orderError } = await supabase.from("orders").select("id,user_id,customer_email,customer_name,order_number,status,total").eq("id", orderId).maybeSingle();
     if (orderError) throw orderError;
     if (!order) return json({ error: "Order not found" }, 404);
     if (order.status === status) return json({ order, changed: false });
 
     const { data: updated, error: updateError } = await supabase.from("orders").update({ status }).eq("id", orderId).select("id,order_number,status").single();
     if (updateError) throw updateError;
-    await sendOrderStatusEmail({ ...order, status });
+    if (!order.user_id) {
+      await sendOrderStatusEmail({ ...order, status });
+    } else {
+      const { data: profile } = await supabase.from("profiles").select("order_updates_email_consent").eq("id", order.user_id).maybeSingle();
+      if (profile?.order_updates_email_consent) await sendOrderStatusEmail({ ...order, status });
+    }
     return json({ order: updated, changed: true });
   } catch (error: unknown) {
     console.error("Update order status failed", error);

@@ -72,6 +72,12 @@ As Edge Functions usam variáveis configuradas no Supabase/Lovable Cloud, não n
 
 Nunca registre valores reais dessas variáveis no Git.
 
+## Conta do cliente
+
+Os consentimentos para atualizações de pedidos e para promoções são registrados
+separadamente no perfil. O checkout de um usuário autenticado atualiza os dados
+do perfil e o endereço padrão para reutilização em compras futuras.
+
 ## Frete pela SuperFrete
 
 O frete é cotado no checkout pela Edge Function `quote-superfrete`. O navegador
