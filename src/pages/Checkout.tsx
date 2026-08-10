@@ -11,16 +11,16 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
-  customer_name: z.string().trim().min(2).max(120),
+  customer_name: z.string().trim().min(2).max(50).refine((name) => name.split(/\s+/).length >= 2, "Informe nome e sobrenome."),
   customer_email: z.string().trim().email().max(255),
   customer_phone: z.string().trim().refine(isValidBrazilianPhone, "Informe um telefone brasileiro válido."),
   customer_cpf: z.string().trim().refine(isValidCpf, "Informe um CPF válido."),
   shipping_cep: z.string().trim().refine((cep) => cleanDigits(cep).length === 8, "Informe um CEP válido."),
-  shipping_street: z.string().trim().min(2).max(200),
-  shipping_number: z.string().trim().min(1).max(20),
-  shipping_complement: z.string().trim().max(120).optional(),
-  shipping_district: z.string().trim().min(2).max(120),
-  shipping_city: z.string().trim().min(2).max(120),
+  shipping_street: z.string().trim().min(2).max(50),
+  shipping_number: z.string().trim().min(1).max(10),
+  shipping_complement: z.string().trim().max(20).optional(),
+  shipping_district: z.string().trim().min(2).max(60),
+  shipping_city: z.string().trim().min(2).max(50),
   shipping_state: z.string().trim().refine((state) => BRAZILIAN_STATES.includes(state as typeof BRAZILIAN_STATES[number]), "Selecione uma UF válida."),
   notes: z.string().trim().max(500).optional(),
 });
@@ -35,6 +35,7 @@ const Checkout = () => {
     shipping_district: "", shipping_city: "", shipping_state: "", notes: "",
   });
   const [shipping, setShipping] = useState<ShippingQuote | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingQuote[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
 
@@ -60,12 +61,14 @@ const Checkout = () => {
         shipping_city: address.city,
         shipping_state: address.state,
       }));
-      const quote = await quoteShipping(cep);
-      if (quote) {
-        setShipping(quote);
-        toast.success(`Frete: ${quote.label}`);
+      const quotes = await quoteShipping(cep, items.map((item) => ({ productId: item.productId, quantity: item.quantity })));
+      if (quotes.length > 0) {
+        setShippingOptions(quotes);
+        setShipping(quotes[0]);
+        toast.success("Escolha uma modalidade de frete.");
       } else {
         setShipping(null);
+        setShippingOptions([]);
         toast.error("Não atendemos esse CEP no momento.");
       }
     } catch (error: unknown) {
@@ -111,6 +114,7 @@ const Checkout = () => {
             variant: item.variant || null,
             quantity: item.quantity,
           })),
+          shipping_service_id: shipping.serviceId,
         },
       });
 
@@ -167,7 +171,7 @@ const Checkout = () => {
               <Field label="CPF" name="customer_cpf" autoComplete="off" inputMode="numeric" value={form.customer_cpf} onChange={(event) => set("customer_cpf", formatCpf(event.target.value))} required />
               <Field label="E-mail" name="customer_email" autoComplete="email" type="email" value={form.customer_email} onChange={(event) => set("customer_email", event.target.value)} required />
               <Field label="Telefone / WhatsApp" name="customer_phone" autoComplete="tel" inputMode="tel" value={form.customer_phone} onChange={(event) => set("customer_phone", formatPhone(event.target.value))} required />
-              <Field label={cepLoading ? "CEP (buscando…)" : "CEP"} name="shipping_cep" autoComplete="postal-code" inputMode="numeric" value={form.shipping_cep} onChange={(event) => { set("shipping_cep", formatCep(event.target.value)); setShipping(null); }} onBlur={onCepBlur} required />
+              <Field label={cepLoading ? "CEP (buscando…)" : "CEP"} name="shipping_cep" autoComplete="postal-code" inputMode="numeric" value={form.shipping_cep} onChange={(event) => { set("shipping_cep", formatCep(event.target.value)); setShipping(null); setShippingOptions([]); }} onBlur={onCepBlur} required />
               <div />
               <Field label="Endereço" name="shipping_street" autoComplete="address-line1" value={form.shipping_street} onChange={(event) => set("shipping_street", event.target.value)} wrapperClass="sm:col-span-2" required />
               <Field label="Número" name="shipping_number" autoComplete="address-line2" value={form.shipping_number} onChange={(event) => set("shipping_number", event.target.value)} required />
@@ -185,13 +189,20 @@ const Checkout = () => {
           </Section>
 
           <Section icon={<Truck className="h-5 w-5" />} title="Frete">
-            {shipping ? (
-              <div className="flex items-center justify-between rounded-md border border-primary bg-primary/5 p-4">
-                <div>
-                  <p className="font-semibold">{shipping.label}</p>
-                  <p className="text-xs text-muted-foreground">{shipping.days} • origem: São Bernardo do Campo - SP</p>
-                </div>
-                <p className="font-bold text-primary">{formatBRL(shipping.price)}</p>
+            {shippingOptions.length > 0 ? (
+              <div className="space-y-2">
+                {shippingOptions.map((option) => (
+                  <label key={option.serviceId} className={`flex cursor-pointer items-center justify-between rounded-md border p-4 ${shipping?.serviceId === option.serviceId ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <span className="flex items-center gap-3">
+                      <input type="radio" name="shipping_method" checked={shipping?.serviceId === option.serviceId} onChange={() => setShipping(option)} />
+                      <span>
+                        <span className="block font-semibold">{option.label}</span>
+                        <span className="block text-xs text-muted-foreground">{option.deliveryMin === option.deliveryMax ? `${option.deliveryMin} dias úteis` : `${option.deliveryMin} a ${option.deliveryMax} dias úteis`}</span>
+                      </span>
+                    </span>
+                    <span className="font-bold text-primary">{formatBRL(option.price)}</span>
+                  </label>
+                ))}
               </div>
             ) : <p className="text-sm text-muted-foreground">Informe um CEP válido para calcular o frete automaticamente.</p>}
           </Section>

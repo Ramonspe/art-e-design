@@ -1,14 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ShippingQuote = { rate_id: string; label: string; price: number; days: string };
+export type ShippingQuote = {
+  serviceId: number;
+  label: string;
+  price: number;
+  deliveryMin: number;
+  deliveryMax: number;
+};
+
+export type ShippingCartItem = { productId: string; quantity: number };
 
 const cleanCep = (cep: string) => cep.replace(/\D/g, "");
 
 export async function fetchAddressByCep(cep: string) {
   const c = cleanCep(cep);
   if (c.length !== 8) throw new Error("CEP inválido");
-  const r = await fetch(`https://viacep.com.br/ws/${c}/json/`);
-  const data = await r.json();
+  const response = await fetch(`https://viacep.com.br/ws/${c}/json/`);
+  const data = await response.json();
   if (data.erro) throw new Error("CEP não encontrado");
   return {
     cep: c,
@@ -19,20 +27,27 @@ export async function fetchAddressByCep(cep: string) {
   };
 }
 
-export async function quoteShipping(cep: string): Promise<ShippingQuote | null> {
+export async function quoteShipping(cep: string, items: ShippingCartItem[]): Promise<ShippingQuote[]> {
   const c = cleanCep(cep);
   if (c.length !== 8) throw new Error("CEP inválido");
-  const { data, error } = await supabase
-    .from("shipping_rates")
-    .select("*")
-    .eq("active", true);
+  if (items.length === 0) return [];
+  const { data, error } = await supabase.functions.invoke("quote-superfrete", {
+    body: { postal_code: c, items: items.map((item) => ({ product_id: item.productId, quantity: item.quantity })) },
+  });
   if (error) throw error;
-  const match = (data || []).find((r: any) => c >= r.cep_start && c <= r.cep_end);
-  if (!match) return null;
-  return {
-    rate_id: match.id,
-    label: match.region_name,
-    price: Number(match.price),
-    days: `${match.delivery_days_min} a ${match.delivery_days_max} dias úteis`,
-  };
+  if (!Array.isArray(data?.quotes)) throw new Error(data?.error || "Não foi possível calcular o frete.");
+  return parseShippingQuotes(data.quotes);
+}
+
+export function parseShippingQuotes(quotes: unknown[]): ShippingQuote[] {
+  return quotes.flatMap((quote: unknown) => {
+    if (!quote || typeof quote !== "object") return [];
+    const item = quote as Record<string, unknown>;
+    const serviceId = Number(item.service_id);
+    const price = Number(item.price);
+    const deliveryMin = Number(item.delivery_min);
+    const deliveryMax = Number(item.delivery_max);
+    if (!Number.isInteger(serviceId) || !Number.isFinite(price) || !Number.isFinite(deliveryMin) || !Number.isFinite(deliveryMax)) return [];
+    return [{ serviceId, label: String(item.label || `Serviço ${serviceId}`), price, deliveryMin, deliveryMax }];
+  });
 }
