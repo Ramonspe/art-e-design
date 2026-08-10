@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
 
   const { data: previousOrder, error: previousOrderError } = await supabase
     .from('orders')
-    .select('id, customer_email, customer_name, order_number, status, payment_status, total')
+    .select('id, user_id, customer_email, customer_name, order_number, status, payment_status, total')
     .eq('id', externalRef)
     .maybeSingle()
 
@@ -274,7 +274,12 @@ Deno.serve(async (req) => {
     }
   }
   if (paymentWasApproved || paymentWasCancelled) {
-    await sendOrderStatusEmail({ ...previousOrder, status })
+    if (!previousOrder.user_id) {
+      await sendOrderStatusEmail({ ...previousOrder, status })
+    } else {
+      const { data: profile } = await supabase.from('profiles').select('order_updates_email_consent').eq('id', previousOrder.user_id).maybeSingle()
+      if (profile?.order_updates_email_consent) await sendOrderStatusEmail({ ...previousOrder, status })
+    }
   }
 
   return new Response(
