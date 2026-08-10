@@ -78,6 +78,12 @@ Os consentimentos para atualizações de pedidos e para promoções são registr
 separadamente no perfil. O checkout de um usuário autenticado atualiza os dados
 do perfil e o endereço padrão para reutilização em compras futuras.
 
+O menu do perfil separa **Minha conta** (`/conta`) de **Meus pedidos**
+(`/meus-pedidos`). No painel administrativo, apenas pedidos com status
+`cancelado` podem ser excluídos, pela Edge Function `delete-cancelled-order`.
+Ao publicar uma alteração dessa função, publique também as Edge Functions no
+Lovable Cloud; o deploy do frontend no Cloudflare Pages não publica funções.
+
 ## Frete pela SuperFrete
 
 O frete é cotado no checkout pela Edge Function `quote-superfrete`. O navegador
