@@ -215,6 +215,14 @@ export type Database = {
           shipping_street: string
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
+          superfrete_delivery_max: number | null
+          superfrete_delivery_min: number | null
+          superfrete_label_url: string | null
+          superfrete_order_id: string | null
+          superfrete_service_id: number | null
+          superfrete_status: string | null
+          superfrete_tracking_code: string | null
+          superfrete_volume: Json | null
           total: number
           updated_at: string
           user_id: string | null
@@ -245,6 +253,14 @@ export type Database = {
           shipping_street: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal: number
+          superfrete_delivery_max?: number | null
+          superfrete_delivery_min?: number | null
+          superfrete_label_url?: string | null
+          superfrete_order_id?: string | null
+          superfrete_service_id?: number | null
+          superfrete_status?: string | null
+          superfrete_tracking_code?: string | null
+          superfrete_volume?: Json | null
           total: number
           updated_at?: string
           user_id?: string | null
@@ -275,6 +291,14 @@ export type Database = {
           shipping_street?: string
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
+          superfrete_delivery_max?: number | null
+          superfrete_delivery_min?: number | null
+          superfrete_label_url?: string | null
+          superfrete_order_id?: string | null
+          superfrete_service_id?: number | null
+          superfrete_status?: string | null
+          superfrete_tracking_code?: string | null
+          superfrete_volume?: Json | null
           total?: number
           updated_at?: string
           user_id?: string | null
@@ -329,6 +353,10 @@ export type Database = {
           old_price: number | null
           price: number
           slug: string
+          shipping_height_cm: number | null
+          shipping_length_cm: number | null
+          shipping_weight_kg: number | null
+          shipping_width_cm: number | null
           stock: number | null
           updated_at: string
           video_url: string | null
@@ -348,6 +376,10 @@ export type Database = {
           old_price?: number | null
           price: number
           slug: string
+          shipping_height_cm?: number | null
+          shipping_length_cm?: number | null
+          shipping_weight_kg?: number | null
+          shipping_width_cm?: number | null
           stock?: number | null
           updated_at?: string
           video_url?: string | null
@@ -367,6 +399,10 @@ export type Database = {
           old_price?: number | null
           price?: number
           slug?: string
+          shipping_height_cm?: number | null
+          shipping_length_cm?: number | null
+          shipping_weight_kg?: number | null
+          shipping_width_cm?: number | null
           stock?: number | null
           updated_at?: string
           video_url?: string | null

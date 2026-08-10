@@ -6,6 +6,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { sendOrderStatusEmail } from '../_shared/order-email.ts'
+import { createSuperfreteShipment, type SuperfreteVolume } from '../_shared/superfrete.ts'
 
 const MP_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') ?? ''
 const MP_WEBHOOK_SECRET = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') ?? ''
@@ -61,6 +62,77 @@ function mpStatusToOrderStatus(status: string): string {
     // pending / in_process / authorized → keep as awaiting: leave order in 'pendente'
     default:
       return 'pendente'
+  }
+}
+
+function asVolume(value: unknown): SuperfreteVolume | null {
+  if (!value || typeof value !== 'object') return null
+  const input = value as Record<string, unknown>
+  const height = Number(input.height)
+  const width = Number(input.width)
+  const length = Number(input.length)
+  const weight = Number(input.weight)
+  return [height, width, length, weight].every((item) => Number.isFinite(item) && item > 0)
+    ? { height, width, length, weight }
+    : null
+}
+
+async function createSuperfreteLabel(orderId: string) {
+  const { data: order, error } = await supabase
+    .from('orders')
+    .update({ superfrete_status: 'creating' })
+    .eq('id', orderId)
+    .is('superfrete_order_id', null)
+    .is('superfrete_status', null)
+    .select('id,order_number,subtotal,customer_name,customer_email,customer_phone,customer_cpf,shipping_cep,shipping_street,shipping_number,shipping_complement,shipping_district,shipping_city,shipping_state,superfrete_service_id,superfrete_volume,order_items(product_name,quantity,unit_price)')
+    .maybeSingle()
+  if (error) throw error
+  if (!order) return
+
+  try {
+    const volume = asVolume(order.superfrete_volume)
+    if (!volume || !order.superfrete_service_id || !order.customer_cpf) {
+      throw new Error('Pedido aprovado sem dados completos para criar a etiqueta SuperFrete.')
+    }
+    const shipment = await createSuperfreteShipment({
+      orderNumber: order.order_number,
+      subtotal: Number(order.subtotal),
+      serviceId: order.superfrete_service_id,
+      volume,
+      recipient: {
+        name: order.customer_name,
+        email: order.customer_email,
+        phone: order.customer_phone,
+        document: order.customer_cpf,
+        address: order.shipping_street,
+        number: order.shipping_number,
+        complement: order.shipping_complement,
+        district: order.shipping_district,
+        city: order.shipping_city,
+        state: order.shipping_state,
+        postalCode: order.shipping_cep,
+      },
+      products: order.order_items.map((item) => ({ name: item.product_name, quantity: item.quantity, unitPrice: Number(item.unit_price) })),
+    })
+    const rawResult = shipment && typeof shipment === 'object' ? shipment as Record<string, unknown> : {}
+    const result = rawResult.data && typeof rawResult.data === 'object' ? rawResult.data as Record<string, unknown> : rawResult
+    const nestedOrder = result.order && typeof result.order === 'object' ? result.order as Record<string, unknown> : {}
+    const orderIdFromSuperfrete = String(result.id ?? nestedOrder.id ?? '')
+    if (!orderIdFromSuperfrete) throw new Error('A SuperFrete não retornou o identificador da etiqueta.')
+    const status = String(result.status ?? nestedOrder.status ?? 'pending')
+    const tracking = result.tracking ?? nestedOrder.tracking
+    const print = result.print ?? nestedOrder.print
+    const labelUrl = print && typeof print === 'object' ? (print as Record<string, unknown>).url : null
+    const { error: updateError } = await supabase.from('orders').update({
+      superfrete_order_id: orderIdFromSuperfrete,
+      superfrete_status: status,
+      superfrete_tracking_code: typeof tracking === 'string' ? tracking : null,
+      superfrete_label_url: typeof labelUrl === 'string' ? labelUrl : null,
+    }).eq('id', order.id)
+    if (updateError) throw updateError
+  } catch (error) {
+    await supabase.from('orders').update({ superfrete_status: null }).eq('id', order.id).eq('superfrete_status', 'creating')
+    throw error
   }
 }
 
@@ -190,6 +262,17 @@ Deno.serve(async (req) => {
 
   const paymentWasApproved = mpStatus === 'approved' && previousOrder.payment_status !== 'approved'
   const paymentWasCancelled = status === 'cancelado' && previousOrder.status !== status
+  if (paymentWasApproved) {
+    try {
+      await createSuperfreteLabel(externalRef)
+    } catch (error) {
+      console.error('SuperFrete label creation failed', { orderId: externalRef, error: error instanceof Error ? error.message : 'unknown error' })
+      return new Response(JSON.stringify({ error: 'SuperFrete label creation failed' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  }
   if (paymentWasApproved || paymentWasCancelled) {
     await sendOrderStatusEmail({ ...previousOrder, status })
   }

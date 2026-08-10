@@ -61,8 +61,31 @@ As Edge Functions usam variáveis configuradas no Supabase/Lovable Cloud, não n
 - `SITE_URL` (URL pública final da loja, usada no retorno do pagamento)
 - `RESEND_API_KEY` (chave do Resend para e-mails transacionais)
 - `RESEND_FROM_EMAIL` (remetente verificado no Resend, por exemplo `pedidos@seudominio.com.br`)
+- `SUPERFRETE_TOKEN` (token do ambiente de Sandbox ou Produção)
+- `SUPERFRETE_BASE_URL` (`https://sandbox.superfrete.com` nos testes e `https://api.superfrete.com` em produção)
+- `SUPERFRETE_ORIGIN_POSTAL_CODE` (CEP de origem com oito dígitos)
+- `SUPERFRETE_USER_AGENT` (nome, versão e e-mail técnico da loja)
+- `SUPERFRETE_SERVICES` (opcional; padrão `1,2,17,3,33`)
+- `SUPERFRETE_USE_INSURANCE` (opcional; use `false` para não cotar seguro)
+- `SUPERFRETE_SENDER_NAME`, `SUPERFRETE_SENDER_ADDRESS`, `SUPERFRETE_SENDER_NUMBER`, `SUPERFRETE_SENDER_DISTRICT`, `SUPERFRETE_SENDER_CITY`, `SUPERFRETE_SENDER_STATE` e `SUPERFRETE_SENDER_DOCUMENT` (dados do remetente da etiqueta)
+- `SUPERFRETE_SENDER_COMPLEMENT` (opcional)
 
 Nunca registre valores reais dessas variáveis no Git.
+
+## Frete pela SuperFrete
+
+O frete é cotado no checkout pela Edge Function `quote-superfrete`. O navegador
+nunca recebe o token da SuperFrete: ele envia apenas o CEP e os itens do carrinho,
+e o servidor valida produtos, estoque, peso e dimensões antes de cotar.
+
+Todo produto ativo deve ter peso em quilogramas e altura, largura e comprimento
+em centímetros cadastrados no painel administrativo. Após o Mercado Pago aprovar
+o pedido, o webhook cria uma etiqueta pendente na SuperFrete. A emissão/pagamento
+da etiqueta é feita no painel da SuperFrete com o saldo ou cartão da loja.
+
+Antes de publicar, aplique a migration mais recente, configure os segredos no
+Supabase e valide uma compra completa usando `SUPERFRETE_BASE_URL` apontando para
+o Sandbox. Etiquetas do Sandbox não podem ser postadas.
 
 ## Notificações de pedidos
 
