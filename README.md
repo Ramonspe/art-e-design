@@ -102,6 +102,8 @@ primeiro; não há autoatribuição de acesso técnico. O painel
 mensagem e referência de suporte — sem expor tokens, segredos ou dados de
 pagamento. Para ativá-lo em produção, publique a migration
 `20260811090000_add_developer_diagnostics.sql` antes das Edge Functions.
+O papel de administrador é independente: ele exibe o atalho para o painel
+administrativo no menu da conta, mas não concede acesso ao painel técnico.
 
 ## Frete pela SuperFrete
 
@@ -126,8 +128,8 @@ no painel administrativo. Para habilitar o envio em produção, configure
 `RESEND_API_KEY` e `RESEND_FROM_EMAIL` como segredos das Edge Functions. Sem
 essas variáveis, o pedido continua funcionando, mas o envio de e-mails é pulado.
 
-Após clicar em pagar, o cliente é direcionado ao Mercado Pago e retorna para a
-tela de acompanhamento do pedido. O carrinho só é limpo quando o webhook
+Após clicar em pagar, o Mercado Pago é aberto em uma nova guia e a loja
+permanece aberta na guia atual. O carrinho só é limpo quando o webhook
 confirma o pagamento como aprovado; antes disso, a tela informa que a confirmação
 está pendente e exibe o protocolo.
 
