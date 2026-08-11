@@ -6,3 +6,6 @@ export const getPaymentFeedback = (paymentStatus?: string | null, orderStatus?: 
   if (["rejected", "cancelled", "failed", "cancelado"].includes(status)) return "rejected";
   return "pending";
 };
+
+export const getOrderConfirmationPath = (orderId: string) =>
+  `/pedido-confirmado?order=${encodeURIComponent(orderId)}`;
