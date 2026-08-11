@@ -95,6 +95,39 @@ export type Database = {
         }
         Relationships: []
       }
+      developer_events: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          message: string
+          metadata: Json
+          reference_id: string
+          severity: string
+          source: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json
+          reference_id: string
+          severity: string
+          source: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          reference_id?: string
+          severity?: string
+          source?: string
+        }
+        Relationships: []
+      }
       hero_slides: {
         Row: {
           active: boolean
@@ -416,39 +449,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      developer_events: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          message: string
-          metadata: Json
-          reference_id: string
-          severity: string
-          source: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          message: string
-          metadata?: Json
-          reference_id: string
-          severity: string
-          source: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          message?: string
-          metadata?: Json
-          reference_id?: string
-          severity?: string
-          source?: string
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
