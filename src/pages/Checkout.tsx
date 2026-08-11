@@ -144,6 +144,14 @@ const Checkout = () => {
       toast.error(parsed.error.issues[0]?.message || "Revise os dados do pedido.");
       return;
     }
+
+    const paymentTab = window.open("about:blank", "_blank");
+    if (!paymentTab) {
+      toast.error("Não foi possível abrir a guia de pagamento.", { description: "Permita pop-ups para este site e tente novamente." });
+      return;
+    }
+    paymentTab.opener = null;
+
     setSubmitting(true);
     try {
       if (user) {
@@ -198,14 +206,16 @@ const Checkout = () => {
 
       toast.dismiss("mp");
       if (paymentError || !payment?.init_point) {
+        paymentTab.close();
         toast.error("Pagamento não iniciado", { description: await getPaymentFailureMessage(paymentError, payment) });
         return;
       }
 
       // O carrinho permanece salvo até a tela de confirmação receber a aprovação
       // real do webhook do Mercado Pago.
-      window.location.assign(payment.init_point);
+      paymentTab.location.href = payment.init_point;
     } catch (error: unknown) {
+      paymentTab?.close();
       toast.dismiss("mp");
       toast.error("Não foi possível concluir o pedido", { description: error instanceof Error ? error.message : "Tente novamente em alguns instantes." });
     } finally {
