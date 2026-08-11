@@ -88,6 +88,11 @@ Os pedidos do painel administrativo são exibidos em tabela e mostram os dados
 completos ao selecionar **Detalhes**; a notificação de item adicionado aparece
 no canto inferior esquerdo e pode ser fechada manualmente.
 
+O login com Google usa o OAuth direto do Supabase, para funcionar também no
+domínio publicado no Cloudflare Pages. Mantenha a URL pública da loja na lista
+de URLs de redirecionamento do Supabase e use a URL de callback do Supabase nas
+credenciais OAuth cadastradas no Google Cloud.
+
 ## Acesso de desenvolvedor e diagnósticos
 
 O papel `developer` é concedido somente por um administrador, na aba
