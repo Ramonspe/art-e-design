@@ -4,7 +4,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
@@ -60,8 +59,15 @@ const Auth = () => {
 
   const google = async () => {
     setBusy(true);
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + redirect });
-    if (r.error) { toast.error("Falha ao entrar com Google"); setBusy(false); }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + redirect },
+    });
+
+    if (error) {
+      toast.error(error.message || "Não foi possível iniciar o login com Google.");
+      setBusy(false);
+    }
   };
 
   return (
