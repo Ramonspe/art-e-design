@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { LayoutDashboard, Package, Tag, ShoppingBag, ArrowLeft, Image as ImageIcon, Trash2, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,47 +110,51 @@ export const AdminOrders = () => {
     load();
   };
   return (
-    <div className="space-y-3">
-      {orders.length === 0 && <p className="text-muted-foreground text-center py-10">Nenhum pedido ainda.</p>}
-      {orders.map((o) => (
-        <div key={o.id} className="rounded-xl border border-border bg-card">
-          <div className="w-full p-5 flex items-center justify-between flex-wrap gap-3">
-            <button type="button" onClick={() => setOpen(open === o.id ? null : o.id)} className="text-left hover:underline">
-              <p className="font-bold">Pedido #{o.order_number} — {o.customer_name}</p>
-              <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
-            </button>
-            <select aria-label={`Status do pedido #${o.order_number}`} value={o.status} onChange={(e) => update(o.id, e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
-              {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <button type="button" aria-label={`Excluir pedido #${o.order_number}`} title={o.status === "cancelado" ? "Excluir pedido cancelado" : "Disponível apenas para pedidos cancelados"} disabled={o.status !== "cancelado"} onClick={(event) => { event.stopPropagation(); void remove(o.id, o.order_number); }} className="rounded-md p-2 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"><Trash2 className="h-4 w-4" /></button>
-            <p className="font-bold text-primary">{formatBRL(Number(o.total))}</p>
-          </div>
-          {open === o.id && (
-            <div className="border-t border-border p-5 text-sm space-y-2">
-              <div className="grid sm:grid-cols-2 gap-2">
-                <div><strong>Email:</strong> {o.customer_email}</div>
-                <div><strong>Telefone:</strong> {o.customer_phone}</div>
-                <div className="sm:col-span-2"><strong>Entrega:</strong> {o.shipping_street}, {o.shipping_number} {o.shipping_complement} - {o.shipping_district}, {o.shipping_city}/{o.shipping_state} - CEP {o.shipping_cep}</div>
-                <div><strong>Frete:</strong> {o.shipping_method} ({formatBRL(Number(o.shipping_cost))})</div>
-                <div><strong>Pagamento:</strong> {o.payment_method}</div>
-                {o.superfrete_status && <div><strong>Etiqueta SuperFrete:</strong> {o.superfrete_status}</div>}
-                {o.superfrete_tracking_code && <div><strong>Rastreio:</strong> {o.superfrete_tracking_code}</div>}
-                {o.superfrete_label_url && <div className="sm:col-span-2"><a href={o.superfrete_label_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Abrir etiqueta da SuperFrete</a></div>}
-                {o.notes && <div className="sm:col-span-2"><strong>Obs:</strong> {o.notes}</div>}
-              </div>
-              <div className="border-t border-border pt-3 mt-2">
-                <p className="font-semibold mb-2">Itens</p>
-                {o.order_items.map((i: any) => (
-                  <div key={i.id} className="flex justify-between py-1">
-                    <span>{i.quantity}x {i.product_name} {i.variant && `(${i.variant})`}</span>
-                    <span>{formatBRL(Number(i.subtotal))}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+    <div>
+      {orders.length === 0 ? (
+        <p className="py-10 text-center text-muted-foreground">Nenhum pedido ainda.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="min-w-[780px] w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase">
+              <tr>
+                <th className="p-3 text-left">Pedido / cliente</th>
+                <th className="p-3 text-left">Data</th>
+                <th className="p-3 text-left">Status</th>
+                <th className="p-3 text-right">Total</th>
+                <th className="p-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <Fragment key={o.id}>
+                  <tr key={o.id} className={`border-t border-border ${open === o.id ? "bg-muted/30" : ""}`}>
+                    <td className="p-3"><p className="font-semibold">Pedido #{o.order_number}</p><p className="text-muted-foreground">{o.customer_name}</p></td>
+                    <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleString("pt-BR")}</td>
+                    <td className="p-3"><select aria-label={`Status do pedido #${o.order_number}`} value={o.status} onChange={(e) => update(o.id, e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">{STATUS.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
+                    <td className="p-3 text-right font-semibold text-primary">{formatBRL(Number(o.total))}</td>
+                    <td className="p-3"><div className="flex items-center justify-end gap-1"><button type="button" aria-expanded={open === o.id} onClick={() => setOpen(open === o.id ? null : o.id)} className="rounded-md px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10">{open === o.id ? "Fechar" : "Detalhes"}</button><button type="button" aria-label={`Excluir pedido #${o.order_number}`} title={o.status === "cancelado" ? "Excluir pedido cancelado" : "Disponível apenas para pedidos cancelados"} disabled={o.status !== "cancelado"} onClick={() => void remove(o.id, o.order_number)} className="rounded-md p-2 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"><Trash2 className="h-4 w-4" /></button></div></td>
+                  </tr>
+                  {open === o.id && (
+                    <tr key={`${o.id}-details`} className="border-t border-border bg-muted/20">
+                      <td colSpan={5} className="p-5 text-sm">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div><strong>Email:</strong> {o.customer_email}</div><div><strong>Telefone:</strong> {o.customer_phone}</div>
+                          <div className="sm:col-span-2"><strong>Entrega:</strong> {o.shipping_street}, {o.shipping_number} {o.shipping_complement} - {o.shipping_district}, {o.shipping_city}/{o.shipping_state} - CEP {o.shipping_cep}</div>
+                          <div><strong>Frete:</strong> {o.shipping_method} ({formatBRL(Number(o.shipping_cost))})</div><div><strong>Pagamento:</strong> {o.payment_method}</div>
+                          {o.superfrete_status && <div><strong>Etiqueta SuperFrete:</strong> {o.superfrete_status}</div>}{o.superfrete_tracking_code && <div><strong>Rastreio:</strong> {o.superfrete_tracking_code}</div>}
+                          {o.superfrete_label_url && <div className="sm:col-span-2"><a href={o.superfrete_label_url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:underline">Abrir etiqueta da SuperFrete</a></div>}{o.notes && <div className="sm:col-span-2"><strong>Obs:</strong> {o.notes}</div>}
+                        </div>
+                        <div className="mt-3 border-t border-border pt-3"><p className="mb-2 font-semibold">Itens</p>{o.order_items.map((i: any) => (<div key={i.id} className="flex justify-between py-1"><span>{i.quantity}x {i.product_name} {i.variant && `(${i.variant})`}</span><span>{formatBRL(Number(i.subtotal))}</span></div>))}</div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ))}
+      )}
     </div>
   );
 };

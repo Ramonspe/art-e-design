@@ -84,6 +84,9 @@ em dispositivos móveis. No painel administrativo, apenas pedidos com status
 `cancelado` podem ser excluídos, pela Edge Function `delete-cancelled-order`.
 Ao publicar uma alteração dessa função, publique também as Edge Functions no
 Lovable Cloud; o deploy do frontend no Cloudflare Pages não publica funções.
+Os pedidos do painel administrativo são exibidos em tabela e mostram os dados
+completos ao selecionar **Detalhes**; a notificação de item adicionado aparece
+no canto inferior esquerdo e pode ser fechada manualmente.
 
 ## Frete pela SuperFrete
 
