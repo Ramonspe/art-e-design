@@ -417,39 +417,6 @@ export type Database = {
           },
         ]
       }
-      developer_events: {
-        Row: {
-          code: string
-          created_at: string
-          id: string
-          message: string
-          metadata: Json
-          reference_id: string
-          severity: string
-          source: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: string
-          message: string
-          metadata?: Json
-          reference_id: string
-          severity: string
-          source: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: string
-          message?: string
-          metadata?: Json
-          reference_id?: string
-          severity?: string
-          source?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           cpf: string | null
@@ -554,7 +521,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "customer" | "developer"
+      app_role: "admin" | "customer"
       order_status:
         | "pendente"
         | "confirmado"
@@ -690,7 +657,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "customer", "developer"],
+      app_role: ["admin", "customer"],
       order_status: [
         "pendente",
         "confirmado",
