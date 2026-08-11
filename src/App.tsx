@@ -17,8 +17,9 @@ import Contato from "./pages/Contato";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
 import MyOrders from "./pages/MyOrders";
+import Developer from "./pages/Developer";
 import { AdminLayout, AdminDashboard, AdminOrders, AdminProducts, AdminCategories, AdminSlides, AdminUsers } from "./pages/Admin";
-import { RequireAuth, RequireAdmin } from "./components/RequireAuth";
+import { RequireAuth, RequireAdmin, RequireDeveloper } from "./components/RequireAuth";
 import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route path="/conta" element={<RequireAuth><Account /></RequireAuth>} />
                 <Route path="/meus-pedidos" element={<RequireAuth><MyOrders /></RequireAuth>} />
+                <Route path="/desenvolvedor" element={<RequireDeveloper><Developer /></RequireDeveloper>} />
                 <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="pedidos" element={<AdminOrders />} />

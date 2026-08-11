@@ -25,6 +25,28 @@ const checkoutSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 });
 
+type CheckoutFailure = { error?: string; reference_id?: string };
+
+const readCheckoutFailure = (value: unknown): CheckoutFailure | null => {
+  if (typeof value !== "object" || value === null) return null;
+  const record = value as Record<string, unknown>;
+  return {
+    error: typeof record.error === "string" ? record.error : undefined,
+    reference_id: typeof record.reference_id === "string" ? record.reference_id : undefined,
+  };
+};
+
+const getPaymentFailureMessage = async (error: unknown, payload: unknown) => {
+  const fromPayload = readCheckoutFailure(payload);
+  let fromResponse: CheckoutFailure | null = null;
+  if (typeof error === "object" && error !== null && "context" in error && error.context instanceof Response) {
+    fromResponse = readCheckoutFailure(await error.context.clone().json().catch(() => null));
+  }
+  const failure = fromResponse ?? fromPayload;
+  const description = failure?.error || "Não foi possível iniciar o pagamento. Tente novamente em alguns instantes.";
+  return failure?.reference_id ? `${description} Código de suporte: ${failure.reference_id}.` : description;
+};
+
 const Checkout = () => {
   const { items, subtotal } = useCart();
   const { user } = useAuth();
@@ -176,7 +198,8 @@ const Checkout = () => {
 
       toast.dismiss("mp");
       if (paymentError || !payment?.init_point) {
-        throw new Error(paymentError?.message || payment?.error || "Não foi possível iniciar o pagamento.");
+        toast.error("Pagamento não iniciado", { description: await getPaymentFailureMessage(paymentError, payment) });
+        return;
       }
 
       // O carrinho permanece salvo até a tela de confirmação receber a aprovação
@@ -184,7 +207,7 @@ const Checkout = () => {
       window.location.assign(payment.init_point);
     } catch (error: unknown) {
       toast.dismiss("mp");
-      toast.error("Erro ao registrar pedido", { description: error instanceof Error ? error.message : "Tente novamente em alguns instantes." });
+      toast.error("Não foi possível concluir o pedido", { description: error instanceof Error ? error.message : "Tente novamente em alguns instantes." });
     } finally {
       setSubmitting(false);
     }
