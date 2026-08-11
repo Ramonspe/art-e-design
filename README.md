@@ -129,7 +129,9 @@ no painel administrativo. Para habilitar o envio em produção, configure
 essas variáveis, o pedido continua funcionando, mas o envio de e-mails é pulado.
 
 Após clicar em pagar, o Mercado Pago é aberto em uma nova guia e a loja
-permanece aberta na guia atual. O carrinho só é limpo quando o webhook
+mostra imediatamente a página de acompanhamento do pedido na guia atual. Essa
+página exibe **Aguardando confirmação do pagamento** até o webhook confirmar a
+aprovação. O carrinho só é limpo quando o webhook
 confirma o pagamento como aprovado; antes disso, a tela informa que a confirmação
 está pendente e exibe o protocolo.
 

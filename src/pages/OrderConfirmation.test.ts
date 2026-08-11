@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPaymentFeedback } from "@/lib/order-payment";
+import { getOrderConfirmationPath, getPaymentFeedback } from "@/lib/order-payment";
 
 describe("getPaymentFeedback", () => {
   it("só apresenta pagamento recebido quando o status do pedido está aprovado", () => {
@@ -9,5 +9,9 @@ describe("getPaymentFeedback", () => {
 
   it("apresenta uma orientação de nova tentativa para pagamentos recusados", () => {
     expect(getPaymentFeedback("rejected")).toBe("rejected");
+  });
+
+  it("mantém o protocolo ao abrir a confirmação do pedido", () => {
+    expect(getOrderConfirmationPath("pedido com espaço")).toBe("/pedido-confirmado?order=pedido%20com%20espa%C3%A7o");
   });
 });

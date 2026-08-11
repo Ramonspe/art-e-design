@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, CreditCard, MapPin, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBRL, useCart } from "@/contexts/CartContext";
@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { BRAZILIAN_STATES, cleanDigits, formatCep, formatCpf, formatPhone, isValidBrazilianPhone, isValidCpf } from "@/lib/checkout";
 import { fetchAddressByCep, quoteShipping, type ShippingQuote } from "@/lib/shipping";
+import { getOrderConfirmationPath } from "@/lib/order-payment";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -51,6 +52,7 @@ const Checkout = () => {
   const { items, subtotal } = useCart();
   const { user } = useAuth();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const [form, setForm] = useState<Record<string, string>>({
     customer_name: "", customer_email: user?.email || "", customer_phone: "", customer_cpf: "",
     shipping_cep: "", shipping_street: "", shipping_number: "", shipping_complement: "",
@@ -205,7 +207,7 @@ const Checkout = () => {
       });
 
       toast.dismiss("mp");
-      if (paymentError || !payment?.init_point) {
+      if (paymentError || !payment?.init_point || !payment?.order_id) {
         paymentTab.close();
         toast.error("Pagamento não iniciado", { description: await getPaymentFailureMessage(paymentError, payment) });
         return;
@@ -214,6 +216,7 @@ const Checkout = () => {
       // O carrinho permanece salvo até a tela de confirmação receber a aprovação
       // real do webhook do Mercado Pago.
       paymentTab.location.href = payment.init_point;
+      navigate(getOrderConfirmationPath(payment.order_id));
     } catch (error: unknown) {
       paymentTab?.close();
       toast.dismiss("mp");
