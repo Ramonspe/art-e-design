@@ -169,6 +169,7 @@ type ManagedUser = {
   order_updates_email_consent: boolean;
   marketing_email_consent: boolean;
   is_admin: boolean;
+  is_developer: boolean;
 };
 
 export const AdminUsers = () => {
@@ -193,7 +194,17 @@ export const AdminUsers = () => {
     toast.success("Acesso atualizado.");
     void load();
   };
-  return <div className="rounded-xl border border-border bg-card overflow-hidden"><div className="p-5 border-b border-border"><h2 className="font-bold text-lg">Usuários cadastrados</h2><p className="text-sm text-muted-foreground mt-1">Consulte os dados cadastrados e defina os acessos administrativos.</p></div>{loading ? <p className="p-5 text-muted-foreground">Carregando…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-xs uppercase"><tr><th className="p-3 text-left">Usuário</th><th className="p-3 text-left">E-mail</th><th className="p-3 text-left">Cadastro</th><th className="p-3 text-left">Consentimentos</th><th className="p-3 text-right">Acesso</th></tr></thead><tbody>{users.map((managedUser) => <tr key={managedUser.id} className="border-t border-border"><td className="p-3"><p className="font-medium">{managedUser.full_name || "Sem nome"}</p><p className="text-xs text-muted-foreground">{managedUser.phone || "Sem telefone"}</p></td><td className="p-3">{managedUser.email}</td><td className="p-3">{new Date(managedUser.created_at).toLocaleDateString("pt-BR")}</td><td className="p-3 text-xs">Pedidos: {managedUser.order_updates_email_consent ? "sim" : "não"}<br />Promoções: {managedUser.marketing_email_consent ? "sim" : "não"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant={managedUser.is_admin ? "outline" : "gold"} disabled={updatingId === managedUser.id} onClick={() => void toggleAdmin(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_admin ? "Remover admin" : "Tornar admin"}</Button></td></tr>)}</tbody></table></div>}</div>;
+  const toggleDeveloper = async (managedUser: ManagedUser) => {
+    const actionLabel = managedUser.is_developer ? "remover o acesso de desenvolvedor de" : "conceder acesso de desenvolvedor a";
+    if (!window.confirm(`Deseja ${actionLabel} ${managedUser.email}?`)) return;
+    setUpdatingId(managedUser.id);
+    const { error } = await supabase.functions.invoke("admin-users", { body: { action: "set_developer", user_id: managedUser.id, enabled: !managedUser.is_developer } });
+    setUpdatingId(null);
+    if (error) { toast.error(await getFunctionErrorMessage(error, "Não foi possível alterar o acesso de desenvolvedor.")); return; }
+    toast.success("Acesso atualizado.");
+    void load();
+  };
+  return <div className="overflow-hidden rounded-xl border border-border bg-card"><div className="border-b border-border p-5"><h2 className="text-lg font-bold">Usuários cadastrados</h2><p className="mt-1 text-sm text-muted-foreground">Consulte os dados cadastrados e defina os acessos administrativos e de desenvolvimento.</p></div>{loading ? <p className="p-5 text-muted-foreground">Carregando…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-xs uppercase"><tr><th className="p-3 text-left">Usuário</th><th className="p-3 text-left">E-mail</th><th className="p-3 text-left">Cadastro</th><th className="p-3 text-left">Consentimentos</th><th className="p-3 text-right">Acessos</th></tr></thead><tbody>{users.map((managedUser) => <tr key={managedUser.id} className="border-t border-border"><td className="p-3"><p className="font-medium">{managedUser.full_name || "Sem nome"}</p><p className="text-xs text-muted-foreground">{managedUser.phone || "Sem telefone"}</p></td><td className="p-3">{managedUser.email}</td><td className="p-3">{new Date(managedUser.created_at).toLocaleDateString("pt-BR")}</td><td className="p-3 text-xs">Pedidos: {managedUser.order_updates_email_consent ? "sim" : "não"}<br />Promoções: {managedUser.marketing_email_consent ? "sim" : "não"}</td><td className="p-3"><div className="flex justify-end gap-2"><Button type="button" size="sm" variant={managedUser.is_admin ? "outline" : "gold"} disabled={updatingId === managedUser.id} onClick={() => void toggleAdmin(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_admin ? "Remover admin" : "Tornar admin"}</Button><Button type="button" size="sm" variant={managedUser.is_developer ? "outline" : "secondary"} disabled={updatingId === managedUser.id} onClick={() => void toggleDeveloper(managedUser)}>{updatingId === managedUser.id ? "Atualizando..." : managedUser.is_developer ? "Remover dev" : "Tornar dev"}</Button></div></td></tr>)}</tbody></table></div>}</div>;
 };
 
 export const AdminProducts = () => {

@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-type Action = "list" | "set_admin";
+type Action = "list" | "set_admin" | "set_developer";
 
 async function requireAdmin(req: Request) {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
 
       const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
       const adminIds = new Set((roles ?? []).filter((role) => role.role === "admin").map((role) => role.user_id));
+      const developerIds = new Set((roles ?? []).filter((role) => role.role === "developer").map((role) => role.user_id));
       return json({ users: users.map((user) => ({
         id: user.id,
         email: user.email ?? "",
@@ -81,28 +82,32 @@ Deno.serve(async (req) => {
         order_updates_email_consent: profilesById.get(user.id)?.order_updates_email_consent ?? false,
         marketing_email_consent: profilesById.get(user.id)?.marketing_email_consent ?? false,
         is_admin: adminIds.has(user.id),
+        is_developer: developerIds.has(user.id),
       })) });
     }
 
-    if (action === "set_admin") {
+    if (action === "set_admin" || action === "set_developer") {
       const userId = typeof body.user_id === "string" ? body.user_id : "";
-      const isAdmin = typeof body.is_admin === "boolean" ? body.is_admin : null;
-      if (!userId || isAdmin === null) return json({ error: "Invalid request" }, 400);
-      if (userId === callerId && !isAdmin) return json({ error: "Você não pode remover seu próprio acesso administrativo." }, 400);
+      const enabled = typeof body.enabled === "boolean" ? body.enabled : typeof body.is_admin === "boolean" ? body.is_admin : null;
+      const role = action === "set_admin" ? "admin" : "developer";
+      if (!userId || enabled === null) return json({ error: "Invalid request" }, 400);
+      if (role === "admin" && userId === callerId && !enabled) return json({ error: "Você não pode remover seu próprio acesso administrativo." }, 400);
 
       const { data: target } = await admin.auth.admin.getUserById(userId);
       if (!target.user) return json({ error: "User not found" }, 404);
-      const { data: existing, error: existingError } = await admin.from("user_roles").select("id").eq("user_id", userId).eq("role", "admin").maybeSingle();
+      const { data: existing, error: existingError } = await admin.from("user_roles").select("id").eq("user_id", userId).eq("role", role).maybeSingle();
       if (existingError) throw existingError;
 
-      if (isAdmin && !existing) {
-        const { error } = await admin.from("user_roles").insert({ user_id: userId, role: "admin" });
+      if (enabled && !existing) {
+        const { error } = await admin.from("user_roles").insert({ user_id: userId, role });
         if (error) throw error;
       }
-      if (!isAdmin && existing) {
+      if (!enabled && existing) {
+        if (role === "admin") {
         const { count, error: countError } = await admin.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
         if (countError) throw countError;
         if ((count ?? 0) <= 1) return json({ error: "A plataforma precisa manter ao menos um administrador." }, 400);
+        }
         const { error } = await admin.from("user_roles").delete().eq("id", existing.id);
         if (error) throw error;
       }

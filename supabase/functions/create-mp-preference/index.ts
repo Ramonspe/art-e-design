@@ -26,10 +26,29 @@ type ProductRow = {
   shipping_length_cm: number | null;
 };
 type VariantRow = { product_id: string; options: string[] };
+type DiagnosticMetadata = Record<string, string | number | boolean | null>;
+type DiagnosticInput = {
+  code: string;
+  message: string;
+  metadata: DiagnosticMetadata;
+  referenceId: string;
+};
 
 const STATES = new Set(["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]);
 const digitsOnly = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const stringValue = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+
+async function recordDiagnostic(supabase: ReturnType<typeof createClient>, input: DiagnosticInput) {
+  const { error } = await supabase.from("developer_events").insert({
+    source: "checkout",
+    severity: "error",
+    code: input.code,
+    message: input.message,
+    reference_id: input.referenceId,
+    metadata: input.metadata,
+  });
+  if (error) console.error("Diagnostic event was not stored", { code: input.code, referenceId: input.referenceId });
+}
 
 function isValidCpf(value: string) {
   const cpf = digitsOnly(value);
@@ -50,20 +69,29 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  try {
-    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    if (!accessToken) return json({ error: "MP not configured" }, 500);
+  const referenceId = crypto.randomUUID();
+  let stage = "checkout_validation";
+  let orderNumber: number | null = null;
+  let diagnostics: ReturnType<typeof createClient> | null = null;
 
+  try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+    diagnostics = supabase;
+    const fail = async (status: number, code: string, message: string, metadata: DiagnosticMetadata = {}) => {
+      await recordDiagnostic(supabase, { code, message, metadata: { ...metadata, stage, order_number: orderNumber }, referenceId });
+      return json({ error: message, code, reference_id: referenceId }, status);
+    };
+    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    if (!accessToken) return fail(503, "payment_configuration", "O pagamento está temporariamente indisponível. Tente novamente mais tarde.");
     const payload = await req.json().catch(() => null);
     const orderInput = payload?.order;
     const incomingItems: IncomingItem[] = Array.isArray(payload?.items) ? payload.items : [];
     const selectedServiceId = Number(payload?.shipping_service_id);
-    if (!orderInput || incomingItems.length === 0) return json({ error: "order and items are required" }, 400);
+    if (!orderInput || incomingItems.length === 0) return json({ error: "Informe os dados do pedido e mantenha ao menos um item no carrinho." }, 400);
     if (!Number.isInteger(selectedServiceId) || selectedServiceId < 1) return json({ error: "A modalidade de frete é obrigatória" }, 400);
 
     const customerName = stringValue(orderInput.customer_name, 50);
@@ -80,7 +108,7 @@ Deno.serve(async (req) => {
       shipping_city: stringValue(orderInput.shipping_city, 50),
     };
     if (customerName.split(/\s+/).length < 2 || !/^\S+@\S+\.\S+$/.test(customerEmail) || !isValidBrazilianPhone(customerPhone) || !isValidCpf(customerCpf) || shippingCep.length !== 8 || !STATES.has(shippingState) || Object.values(address).some((value) => value !== null && value.length === 0)) {
-      return json({ error: "Invalid checkout data" }, 400);
+      return json({ error: "Revise seus dados pessoais e o endereço de entrega." }, 400);
     }
 
     const requested = new Map<string, { productId: string; variant: string | null; quantity: number }>();
@@ -88,20 +116,20 @@ Deno.serve(async (req) => {
       const productId = stringValue(item.product_id, 36);
       const variant = stringValue(item.variant, 120) || null;
       const quantity = Math.floor(Number(item.quantity));
-      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) return json({ error: "Invalid cart item" }, 400);
+      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) return json({ error: "Há um item inválido no carrinho. Atualize a página e tente novamente." }, 400);
       const key = `${productId}:${variant ?? ""}`;
       const existing = requested.get(key);
       requested.set(key, { productId, variant, quantity: (existing?.quantity ?? 0) + quantity });
     }
-    if ([...requested.values()].some((item) => item.quantity > 100)) return json({ error: "Invalid item quantity" }, 400);
+    if ([...requested.values()].some((item) => item.quantity > 100)) return json({ error: "A quantidade de um item excede o limite permitido." }, 400);
 
     const productIds = [...new Set([...requested.values()].map((item) => item.productId))];
     const [{ data: products, error: productsError }, { data: variants, error: variantsError }] = await Promise.all([
       supabase.from("products").select("id,name,price,image,stock,shipping_weight_kg,shipping_height_cm,shipping_width_cm,shipping_length_cm").in("id", productIds).eq("active", true),
       supabase.from("product_variants").select("product_id,options").in("product_id", productIds),
     ]);
-    if (productsError || variantsError) throw new Error(productsError?.message || variantsError?.message || "Failed to validate checkout");
-    if (!products || products.length !== productIds.length) return json({ error: "One or more products are unavailable" }, 409);
+    if (productsError || variantsError) return fail(500, "catalog_validation_failed", "Não foi possível validar os produtos do carrinho.");
+    if (!products || products.length !== productIds.length) return json({ error: "Um ou mais produtos não estão mais disponíveis." }, 409);
 
     const productById = new Map((products as ProductRow[]).map((product) => [product.id, product]));
     const variantsByProduct = new Map<string, string[]>();
@@ -111,8 +139,8 @@ Deno.serve(async (req) => {
 
     const cleanItems = [...requested.values()].map((item) => {
       const product = productById.get(item.productId)!;
-      if (item.variant && !variantsByProduct.get(item.productId)?.includes(item.variant)) throw new Error("Invalid product variant");
-      if (product.stock !== null && item.quantity > product.stock) throw new Error(`Insufficient stock for ${product.name}`);
+      if (item.variant && !variantsByProduct.get(item.productId)?.includes(item.variant)) throw new Error("A variação escolhida não está mais disponível.");
+      if (product.stock !== null && item.quantity > product.stock) throw new Error(`Estoque insuficiente para ${product.name}.`);
       const unitPrice = Number(product.price);
       return {
         product_id: product.id,
@@ -129,6 +157,7 @@ Deno.serve(async (req) => {
       const product = productById.get(item.productId)!;
       return { ...product, quantity: item.quantity };
     });
+    stage = "shipping_confirmation";
     const superfreteQuotes = await calculateSuperfrete(superfreteProducts, shippingCep);
     const selectedShipping = superfreteQuotes.find((quote) => quote.serviceId === selectedServiceId);
     if (!selectedShipping) return json({ error: "A modalidade escolhida não está mais disponível. Calcule o frete novamente." }, 422);
@@ -142,6 +171,7 @@ Deno.serve(async (req) => {
       userId = data?.user?.id ?? null;
     }
 
+    stage = "order_creation";
     const { data: order, error: orderError } = await supabase.from("orders").insert({
       user_id: userId,
       customer_name: customerName,
@@ -163,12 +193,13 @@ Deno.serve(async (req) => {
       payment_status: "pending",
       notes: stringValue(orderInput.notes, 500) || null,
     }).select().single();
-    if (orderError || !order) throw new Error(orderError?.message || "Failed to create order");
+    if (orderError || !order) return fail(500, "order_creation_failed", "Não foi possível registrar seu pedido. Tente novamente em alguns instantes.");
+    orderNumber = order.order_number;
 
     const { error: itemsError } = await supabase.from("order_items").insert(cleanItems.map((item) => ({ ...item, order_id: order.id })));
     if (itemsError) {
       await supabase.from("orders").delete().eq("id", order.id);
-      throw new Error(itemsError.message);
+      return fail(500, "order_items_failed", "Não foi possível registrar os itens do pedido. Tente novamente em alguns instantes.");
     }
 
     if (!userId) {
@@ -202,6 +233,7 @@ Deno.serve(async (req) => {
     };
 
     try {
+      stage = "mercadopago_preference";
       const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -209,18 +241,20 @@ Deno.serve(async (req) => {
       });
       const mpData = await mpResponse.json();
       if (!mpResponse.ok) {
-        console.error("MP error", { status: mpResponse.status, orderNumber: order.order_number });
-        return json({ order_id: order.id, order_number: order.order_number, error: mpData.message || "Falha ao criar preferência" });
+        console.error("MP error", { status: mpResponse.status, orderNumber: order.order_number, referenceId });
+        return fail(422, "mercadopago_rejected", "O Mercado Pago não conseguiu iniciar este pagamento. Revise os dados ou tente novamente em alguns minutos.", { mp_status: mpResponse.status });
       }
 
       await supabase.from("orders").update({ mp_preference_id: mpData.id, payment_status: "pending" }).eq("id", order.id);
       return json({ order_id: order.id, order_number: order.order_number, preference_id: mpData.id, init_point: mpData.init_point, sandbox_init_point: mpData.sandbox_init_point });
     } catch (error: unknown) {
-      console.error("MP request failed", { orderNumber: order.order_number });
-      return json({ order_id: order.id, order_number: order.order_number, error: error instanceof Error ? error.message : "Falha ao contatar o Mercado Pago" });
+      console.error("MP request failed", { orderNumber: order.order_number, referenceId });
+      return fail(502, "mercadopago_unavailable", "Não foi possível conectar ao Mercado Pago. Tente novamente em alguns instantes.");
     }
   } catch (error: unknown) {
-    console.error("Create preference failed", error);
-    return json({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
+    console.error("Create preference failed", { stage, referenceId, error: error instanceof Error ? error.message : "Unknown error" });
+    const message = stage === "shipping_confirmation" ? "Não foi possível confirmar o frete. Calcule o frete novamente." : "Não foi possível preparar seu pagamento. Tente novamente em alguns instantes.";
+    if (diagnostics) await recordDiagnostic(diagnostics, { code: "checkout_unexpected", message, metadata: { stage, order_number: orderNumber }, referenceId });
+    return json({ error: message, code: "checkout_unexpected", reference_id: referenceId }, 500);
   }
 });

@@ -88,6 +88,16 @@ Os pedidos do painel administrativo são exibidos em tabela e mostram os dados
 completos ao selecionar **Detalhes**; a notificação de item adicionado aparece
 no canto inferior esquerdo e pode ser fechada manualmente.
 
+## Acesso de desenvolvedor e diagnósticos
+
+O papel `developer` é concedido somente por um administrador, na aba
+**Usuários** do painel administrativo. A pessoa deve criar uma conta normal
+primeiro; não há autoatribuição de acesso técnico. O painel
+`/desenvolvedor` exibe diagnósticos sanitizados do checkout — código,
+mensagem e referência de suporte — sem expor tokens, segredos ou dados de
+pagamento. Para ativá-lo em produção, publique a migration
+`20260811090000_add_developer_diagnostics.sql` antes das Edge Functions.
+
 ## Frete pela SuperFrete
 
 O frete é cotado no checkout pela Edge Function `quote-superfrete`. O navegador

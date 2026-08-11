@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ShoppingCart, Menu, X, User, Package, LogOut } from "lucide-react";
+import { Search, ShoppingCart, Menu, X, User, Package, LogOut, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +16,7 @@ const nav = [
 
 const Header = () => {
   const { count } = useCart();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, isDeveloper, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const navigate = useNavigate();
@@ -89,6 +89,7 @@ const Header = () => {
                   <div className="my-1 h-px bg-border" />
                   <Link to="/conta" role="menuitem" onClick={() => setAccountOpen(false)} className="flex items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-muted"><User className="mr-2 h-4 w-4" />Minha conta</Link>
                   <Link to="/meus-pedidos" role="menuitem" onClick={() => setAccountOpen(false)} className="flex items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-muted"><Package className="mr-2 h-4 w-4" />Meus pedidos</Link>
+                  {(isAdmin || isDeveloper) && <Link to="/desenvolvedor" role="menuitem" onClick={() => setAccountOpen(false)} className="flex items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-muted"><Wrench className="mr-2 h-4 w-4" />Desenvolvimento</Link>}
                   <div className="my-1 h-px bg-border" />
                   <button type="button" role="menuitem" className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-destructive/10" onClick={() => void signOut()}><LogOut className="mr-2 h-4 w-4" />Sair</button>
                 </div>
